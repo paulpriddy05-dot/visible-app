@@ -91,24 +91,32 @@ export default function DynamicDashboard() {
     const { data: widgets } = await supabase.from('widgets').select('*').eq('dashboard_id', dashboardId);
     if (!widgets) return;
 
-   const loadedWidgets: any[] = [];
+    // ✅ FIX 1: Explicit Type for loadedWidgets
+    const loadedWidgets: any[] = [];
+    
     for (const widget of widgets) {
         try {
             const response = await fetch(widget.sheet_url);
             const csvText = await response.text();
-            Papa.parse(csvText, { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
-                loadedWidgets.push({
-                    id: widget.id,
-                    title: widget.title,
-                    type: 'generic-sheet', 
-                    color: widget.color || 'blue',
-                    data: results.data, 
-                    columns: results.meta.fields, 
-                    rowCount: results.data.length,
-                    sheet_url: widget.sheet_url,
-                    settings: widget.settings || {} 
-                });
-            }});
+            // ✅ FIX 2: Explicit Types for Papa.parse (h, results)
+            Papa.parse(csvText, { 
+                header: true, 
+                skipEmptyLines: true, 
+                transformHeader: (h: string) => h.trim(), 
+                complete: (results: any) => {
+                    loadedWidgets.push({
+                        id: widget.id,
+                        title: widget.title,
+                        type: 'generic-sheet', 
+                        color: widget.color || 'blue',
+                        data: results.data, 
+                        columns: results.meta.fields, 
+                        rowCount: results.data.length,
+                        sheet_url: widget.sheet_url,
+                        settings: widget.settings || {} 
+                    });
+                }
+            });
         } catch (e) { console.error("Error fetching widget", widget.title); }
     }
     setTimeout(() => setGenericWidgets(loadedWidgets), 500);
@@ -117,7 +125,7 @@ export default function DynamicDashboard() {
   const fetchSheetData = async (currentConfig: any) => {
     if (currentConfig.sheet_url_schedule) {
         const response = await fetch(currentConfig.sheet_url_schedule);
-        // ✅ Fixed Syntax Here:
+        // ✅ FIX 3: Explicit Types for Papa.parse
         Papa.parse(await response.text(), { 
             header: true, 
             skipEmptyLines: true, 
@@ -132,7 +140,7 @@ export default function DynamicDashboard() {
     }
     if (currentConfig.sheet_url_missions) {
         const response = await fetch(currentConfig.sheet_url_missions);
-        // ✅ Fixed Syntax Here:
+        // ✅ FIX 4: Explicit Types for Papa.parse
         Papa.parse(await response.text(), { 
             header: true, 
             skipEmptyLines: true, 
@@ -194,13 +202,22 @@ export default function DynamicDashboard() {
   // Helpers
   const doesCardMatch = (card: any) => { if(!searchQuery) return true; return JSON.stringify(card).toLowerCase().includes(searchQuery.toLowerCase()); };
   const updateColor = async (newColor: string) => { if (!activeCard || !activeCard.source?.includes("manual")) return; const updatedCard = { ...activeCard, color: newColor }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ color: newColor }).eq('id', activeCard.id); };
+  
+  // ✅ FIX 5: Explicit Types for Google Picker Callback
   const handleOpenPicker = (bIdx: number) => { setActiveBlockIndex(bIdx); openPicker({ clientId: GOOGLE_CLIENT_ID, developerKey: GOOGLE_API_KEY, viewId: "DOCS", showUploadView: true, showUploadFolders: true, supportDrives: true, multiselect: true, callbackFunction: (data: any) => { if (data.action === "picked") addFilesToBlock(bIdx, data.docs); } }); };
+  
   const addFilesToBlock = async (bIdx: number, files: any[]) => { const currentBlocks = getBlocks(activeCard); const newItems = files.map(file => ({ title: file.name, url: file.url, type: 'google-drive', iconUrl: file.iconUrl })); currentBlocks[bIdx].items = [...currentBlocks[bIdx].items, ...newItems]; updateResources(currentBlocks); };
   const getBlocks = (card: any) => { const res = card.resources || []; if (res.length === 0) return []; if (!res[0].items) return [{ title: "General Files", items: res }]; return res; };
   const addBlock = async () => { const newBlockName = prompt("Name your new Category:"); if (!newBlockName) return; updateResources([...getBlocks(activeCard), { title: newBlockName, items: [] }]); };
+  
+  // ✅ FIX 6: Explicit Types for Delete Filters
   const deleteBlock = async (bIdx: number) => { if(!confirm("Delete block?")) return; updateResources(getBlocks(activeCard).filter((_: any, idx: number) => idx !== bIdx)); };
+  
   const addItemToBlock = async (bIdx: number) => { const titleInput = newItemTitleRefs.current[`block-${bIdx}`]; const urlInput = newItemUrlRefs.current[`block-${bIdx}`]; if (!titleInput?.value || !urlInput?.value) return alert("Enter info"); const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items.push({ title: titleInput.value, url: urlInput.value, type: 'link' }); updateResources(currentBlocks); titleInput.value = ""; urlInput.value = ""; };
-  const deleteItemFromBlock = async (bIdx: number, iIdx: number) => { if(!confirm("Remove file?")) return; const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items = currentBlocks[bIdx].items.filter((_: any, idx: number) => idx !== bIdx); updateResources(currentBlocks); };
+  
+  // ✅ FIX 7: Explicit Types for Delete Filters
+  const deleteItemFromBlock = async (bIdx: number, iIdx: number) => { if(!confirm("Remove file?")) return; const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items = currentBlocks[bIdx].items.filter((_: any, idx: number) => idx !== iIdx); updateResources(currentBlocks); };
+  
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   const setActiveModal = (card: any) => { if (isEditing && activeCard) handleSave(); setIsEditing(false); setIsMapping(false); setActiveCard(card); setShowDocPreview(null); };
@@ -243,7 +260,7 @@ export default function DynamicDashboard() {
             <div className="lg:col-span-1 space-y-6">
                  {missionCard && doesCardMatch(missionCard) && (<div><div className="flex items-center gap-2 mb-2 text-slate-400 text-xs font-bold uppercase tracking-wider"><i className="fas fa-plane-departure"></i> Missions</div><div onClick={() => setActiveModal(missionCard)} className={`cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}><div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className="fas fa-globe-americas text-2xl"></i></div><h4 className="font-bold text-lg tracking-wide">{missionCard.title}</h4><div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div></div></div>)}
                  
-                 {/* 🟢 MODIFIED WIDGETS: Removed Header + Fixed Height */}
+                 {/* MODIFIED WIDGETS: Removed Header + Fixed Height */}
                  {genericWidgets.map((widget) => (
                     <div key={widget.id}>
                         <div onClick={() => setActiveModal(widget)} className={`cursor-pointer hover:-translate-y-1 hover:shadow-lg rounded-xl p-0 relative overflow-hidden group transition-all bg-white border border-slate-200 h-40 flex flex-col`}>
@@ -294,7 +311,7 @@ export default function DynamicDashboard() {
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                 {/* 🟢 MODIFIED BUTTON: "Configure View" if settings exist */}
+                 {/* MODIFIED BUTTON: "Configure View" if settings exist */}
                  {activeCard.type === 'generic-sheet' && !isMapping && (
                      <button onClick={() => setIsMapping(true)} className="px-3 py-1 rounded text-sm font-bold bg-white/20 text-white hover:bg-white/30 transition-colors flex items-center gap-2">
                         <i className={`fas ${activeCard.settings?.viewMode ? 'fa-cog' : 'fa-magic'}`}></i> {activeCard.settings?.viewMode ? "Configure View" : "Visualize"}
@@ -332,7 +349,7 @@ export default function DynamicDashboard() {
                   ) : activeCard.settings?.viewMode === 'card' ? (
                       // 2. CARD VIEW RENDERER
                       <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                           {/* 🟢 FILTERED: Only show cards where Title exists */}
+                           {/* FILTERED: Only show cards where Title exists */}
                            {activeCard.data.filter((row:any) => row[activeCard.settings.titleCol]).map((row:any, idx:number) => (
                                <div key={idx} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
                                    <div className="flex justify-between items-start mb-2">
@@ -359,7 +376,7 @@ export default function DynamicDashboard() {
                       </div>
                   )
               ) : activeCard.id === "missions-status" ? (
-                  // 🟢 MISSIONS LOGIC RESTORED
+                  // MISSIONS LOGIC RESTORED
                   <div className="p-0 bg-slate-50 min-h-full">
                       <div className="bg-sky-50 p-8 border-b border-sky-100 flex flex-col md:flex-row justify-between items-center gap-6">
                           <div>
