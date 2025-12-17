@@ -91,7 +91,7 @@ export default function DynamicDashboard() {
     const { data: widgets } = await supabase.from('widgets').select('*').eq('dashboard_id', dashboardId);
     if (!widgets) return;
 
-    const loadedWidgets = [];
+   const loadedWidgets: any[] = [];
     for (const widget of widgets) {
         try {
             const response = await fetch(widget.sheet_url);
