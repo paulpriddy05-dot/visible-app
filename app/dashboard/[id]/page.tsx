@@ -211,12 +211,12 @@ export default function DynamicDashboard() {
   const addBlock = async () => { const newBlockName = prompt("Name your new Category:"); if (!newBlockName) return; updateResources([...getBlocks(activeCard), { title: newBlockName, items: [] }]); };
   
   // ✅ FIX: Explicit Types for deleteBlock filter
-  const deleteBlock = async (bIdx: number) => { if(!confirm("Delete block?")) return; updateResources(getBlocks(activeCard).filter((_: any, idx: number) => idx !== bIdx)); };
+  const deleteBlock = async (bIdx: number) => { if(!confirm("Delete block?")) return; updateResources(getBlocks(activeCard).filter((item: any, idx: number) => idx !== bIdx)); };
   
   const addItemToBlock = async (bIdx: number) => { const titleInput = newItemTitleRefs.current[`block-${bIdx}`]; const urlInput = newItemUrlRefs.current[`block-${bIdx}`]; if (!titleInput?.value || !urlInput?.value) return alert("Enter info"); const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items.push({ title: titleInput.value, url: urlInput.value, type: 'link' }); updateResources(currentBlocks); titleInput.value = ""; urlInput.value = ""; };
   
   // ✅ FIX: Explicit Types for deleteItemFromBlock filter
-  const deleteItemFromBlock = async (bIdx: number, iIdx: number) => { if(!confirm("Remove file?")) return; const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items = currentBlocks[bIdx].items.filter((_: any, idx: number) => idx !== iIdx); updateResources(currentBlocks); };
+  const deleteItemFromBlock = async (bIdx: number, iIdx: number) => { if(!confirm("Remove file?")) return; const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items = currentBlocks[bIdx].items.filter((item: any, idx: number) => idx !== iIdx); updateResources(currentBlocks); };
   
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
@@ -457,4 +457,4 @@ export default function DynamicDashboard() {
 
     </div>
   );
-}
+}// Force update 12345
