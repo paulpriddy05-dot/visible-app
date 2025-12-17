@@ -96,7 +96,7 @@ export default function DynamicDashboard() {
         try {
             const response = await fetch(widget.sheet_url);
             const csvText = await response.text();
-            Papa.parse(csvText, { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim(), complete: (results) => {
+            Papa.parse(csvText, { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
                 loadedWidgets.push({
                     id: widget.id,
                     title: widget.title,
@@ -117,7 +117,7 @@ export default function DynamicDashboard() {
   const fetchSheetData = async (currentConfig: any) => {
     if (currentConfig.sheet_url_schedule) {
         const response = await fetch(currentConfig.sheet_url_schedule);
-        Papa.parse(await response.text(), { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim(), complete: (results) => {
+        Papa.parse(await response.text(), { header: true, skipEmptyLines: true, : (h) transformHeader: (h: string) => h.trim(), complete: (results: any) => {
             const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({
                 id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet"
             }));
@@ -126,7 +126,7 @@ export default function DynamicDashboard() {
     }
     if (currentConfig.sheet_url_missions) {
         const response = await fetch(currentConfig.sheet_url_missions);
-        Papa.parse(await response.text(), { header: true, skipEmptyLines: true, transformHeader: (h) => h.trim(), complete: (results) => {
+        Papa.parse(await response.text(), { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
             const data = results.data;
             if (data.length > 0) {
                  const row1 = data[0]; 
