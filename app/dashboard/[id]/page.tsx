@@ -91,14 +91,14 @@ export default function DynamicDashboard() {
     const { data: widgets } = await supabase.from('widgets').select('*').eq('dashboard_id', dashboardId);
     if (!widgets) return;
 
-    // ✅ FIX 1: Explicit Type for loadedWidgets
+    // ✅ Explicit Type for loadedWidgets
     const loadedWidgets: any[] = [];
     
     for (const widget of widgets) {
         try {
             const response = await fetch(widget.sheet_url);
             const csvText = await response.text();
-            // ✅ FIX 2: Explicit Types for Papa.parse (h, results)
+            // ✅ Explicit Types for Papa.parse (h, results)
             Papa.parse(csvText, { 
                 header: true, 
                 skipEmptyLines: true, 
@@ -125,7 +125,7 @@ export default function DynamicDashboard() {
   const fetchSheetData = async (currentConfig: any) => {
     if (currentConfig.sheet_url_schedule) {
         const response = await fetch(currentConfig.sheet_url_schedule);
-        // ✅ FIX 3: Explicit Types for Papa.parse
+        // ✅ Explicit Types for Papa.parse
         Papa.parse(await response.text(), { 
             header: true, 
             skipEmptyLines: true, 
@@ -140,7 +140,7 @@ export default function DynamicDashboard() {
     }
     if (currentConfig.sheet_url_missions) {
         const response = await fetch(currentConfig.sheet_url_missions);
-        // ✅ FIX 4: Explicit Types for Papa.parse
+        // ✅ Explicit Types for Papa.parse
         Papa.parse(await response.text(), { 
             header: true, 
             skipEmptyLines: true, 
@@ -203,19 +203,19 @@ export default function DynamicDashboard() {
   const doesCardMatch = (card: any) => { if(!searchQuery) return true; return JSON.stringify(card).toLowerCase().includes(searchQuery.toLowerCase()); };
   const updateColor = async (newColor: string) => { if (!activeCard || !activeCard.source?.includes("manual")) return; const updatedCard = { ...activeCard, color: newColor }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ color: newColor }).eq('id', activeCard.id); };
   
-  // ✅ FIX 5: Explicit Types for Google Picker Callback
+  // ✅ Explicit Types for Google Picker Callback
   const handleOpenPicker = (bIdx: number) => { setActiveBlockIndex(bIdx); openPicker({ clientId: GOOGLE_CLIENT_ID, developerKey: GOOGLE_API_KEY, viewId: "DOCS", showUploadView: true, showUploadFolders: true, supportDrives: true, multiselect: true, callbackFunction: (data: any) => { if (data.action === "picked") addFilesToBlock(bIdx, data.docs); } }); };
   
   const addFilesToBlock = async (bIdx: number, files: any[]) => { const currentBlocks = getBlocks(activeCard); const newItems = files.map(file => ({ title: file.name, url: file.url, type: 'google-drive', iconUrl: file.iconUrl })); currentBlocks[bIdx].items = [...currentBlocks[bIdx].items, ...newItems]; updateResources(currentBlocks); };
   const getBlocks = (card: any) => { const res = card.resources || []; if (res.length === 0) return []; if (!res[0].items) return [{ title: "General Files", items: res }]; return res; };
   const addBlock = async () => { const newBlockName = prompt("Name your new Category:"); if (!newBlockName) return; updateResources([...getBlocks(activeCard), { title: newBlockName, items: [] }]); };
   
-  // ✅ FIX 6: Explicit Types for Delete Filters
+  // ✅ FIX: Explicit Types for deleteBlock filter
   const deleteBlock = async (bIdx: number) => { if(!confirm("Delete block?")) return; updateResources(getBlocks(activeCard).filter((_: any, idx: number) => idx !== bIdx)); };
   
   const addItemToBlock = async (bIdx: number) => { const titleInput = newItemTitleRefs.current[`block-${bIdx}`]; const urlInput = newItemUrlRefs.current[`block-${bIdx}`]; if (!titleInput?.value || !urlInput?.value) return alert("Enter info"); const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items.push({ title: titleInput.value, url: urlInput.value, type: 'link' }); updateResources(currentBlocks); titleInput.value = ""; urlInput.value = ""; };
   
-  // ✅ FIX 7: Explicit Types for Delete Filters
+  // ✅ FIX: Explicit Types for deleteItemFromBlock filter
   const deleteItemFromBlock = async (bIdx: number, iIdx: number) => { if(!confirm("Remove file?")) return; const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items = currentBlocks[bIdx].items.filter((_: any, idx: number) => idx !== iIdx); updateResources(currentBlocks); };
   
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
