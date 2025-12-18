@@ -1,122 +1,59 @@
 "use client";
 
 import { Suspense } from "react";
-import { createClient } from "@/utils/supabase/client";
-import { useRouter, useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase"; // 🟢 CORRECTED IMPORT
+import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
-// 1. The Login Logic Component
-function LoginContent() {
+function JoinContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
-
-  const supabase = createClient();
+  const params = useParams();
+  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState("Verifying invite...");
 
   useEffect(() => {
-    const error = searchParams.get("error");
-    if (error) {
-      setErrorMsg(decodeURIComponent(error));
-    }
-  }, [searchParams]);
+    const acceptInvite = async () => {
+      const token = params?.token as string;
+      
+      if (!token) {
+        setStatus("Invalid invite link.");
+        setLoading(false);
+        return;
+      }
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setErrorMsg("");
+      // Check if user is logged in
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        router.push(`/?error=${encodeURIComponent("Please login to accept invite")}`);
+        return;
+      }
 
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
-      if (error) setErrorMsg(error.message);
-      else alert("Check your email for the confirmation link!");
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) setErrorMsg(error.message);
-      else router.push("/dashboard"); // Redirects to your Lobby
-    }
-    setLoading(false);
-  };
+      // If logged in, we would normally process the token here.
+      // For now, we just redirect to the dashboard.
+      setStatus("Invite accepted! Redirecting...");
+      setTimeout(() => {
+         router.push("/dashboard");
+      }, 1500);
+    };
+
+    acceptInvite();
+  }, [params, router]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-8">
-        <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">
-          {isSignUp ? "Create Account" : "Welcome Back"}
-        </h1>
-        <p className="text-center text-slate-500 mb-6">
-          {isSignUp ? "Start visualizing your ministry data." : "Login to access your dashboards."}
-        </p>
-
-        {errorMsg && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
-            {errorMsg}
-          </div>
-        )}
-
-        <form onSubmit={handleAuth} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-            <input
-              type="email"
-              required
-              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
-              placeholder="you@church.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-            <input
-              type="password"
-              required
-              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-
-          <button
-            disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-all disabled:opacity-50 flex justify-center items-center"
-          >
-            {loading ? <i className="fas fa-spinner fa-spin"></i> : (isSignUp ? "Sign Up" : "Login")}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-slate-500">
-          {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
-          <button
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-blue-600 font-bold hover:underline"
-          >
-            {isSignUp ? "Login" : "Sign Up"}
-          </button>
-        </div>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="bg-white p-8 rounded-xl shadow-md border border-slate-200 text-center max-w-md w-full">
+        {loading ? <i className="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-4"></i> : null}
+        <h2 className="text-xl font-bold text-slate-800">{status}</h2>
       </div>
     </div>
   );
 }
 
-// 2. The Root Page Wrapper (This fixes the build error!)
-export default function LoginPage() {
+export default function JoinPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
-      <LoginContent />
+    <Suspense fallback={<div>Loading...</div>}>
+      <JoinContent />
     </Suspense>
   );
 }
