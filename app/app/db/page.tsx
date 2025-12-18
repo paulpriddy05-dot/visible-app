@@ -69,7 +69,7 @@ export default function DashboardLobby() {
                 </div>
             ))}
 
-            {/* 🟢 3. CONNECTED BUTTON */}
+            {/* 🟢 3. CONNECTED  */}
             <div onClick={handleCreate} className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 cursor-pointer transition-all">
                 <i className="fas fa-plus text-3xl mb-2"></i>
                 <span className="font-medium">Create New Dashboard</span>
