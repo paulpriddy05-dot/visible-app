@@ -11,34 +11,29 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // 1. Get the target destination from the URL (default to dashboard)
-      const next = searchParams.get("next") || "/dashboard";
-      
-      // 2. FORCE check for a session
-      const { data: { session }, error } = await supabase.auth.getSession();
+      // 1. Get the requested destination from the URL, defaulting to dashboard
+      //    (This handles normal logins)
+      const nextParam = searchParams.get("next");
+      const defaultNext = "/dashboard";
 
-      if (error) {
-        setStatus("Error verifying link. Please try again.");
-        console.error("Auth error:", error);
-        return;
-      }
-
-      if (session) {
-        setStatus("Login confirmed! Redirecting...");
-        // 🟢 CRITICAL: Small delay ensures the browser saves the cookie before we move
-        setTimeout(() => {
-           router.push(next);
-        }, 500); 
-      } else {
-        // 3. If no session yet, listen for the exact moment it arrives
-        setStatus("Finalizing login...");
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          if (event === "SIGNED_IN" && session) {
-            setStatus("Success! Redirecting...");
-            router.push(next);
-          }
-        });
-      }
+      // 2. Set up a listener for the specific Auth Event
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        
+        if (event === "PASSWORD_RECOVERY") {
+          // 🟢 TRAFFIC CONTROL: If this is a Password Reset, FORCE them to settings
+          setStatus("Password reset verified! sending you to settings...");
+          setTimeout(() => {
+            router.push("/dashboard/settings");
+          }, 500);
+        } 
+        else if (event === "SIGNED_IN") {
+          // 🟡 NORMAL LOGIN: Go to dashboard (or wherever they asked to go)
+          setStatus("Login confirmed! Redirecting...");
+          setTimeout(() => {
+            router.push(nextParam || defaultNext);
+          }, 500);
+        }
+      });
     };
 
     handleCallback();
@@ -48,7 +43,7 @@ export default function AuthCallbackPage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
       <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-100 text-center">
         <i className="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
-        <h2 className="text-xl font-bold mb-2">One moment...</h2>
+        <h2 className="text-xl font-bold mb-2">Verifying credentials...</h2>
         <p className="text-slate-500">{status}</p>
       </div>
     </div>
