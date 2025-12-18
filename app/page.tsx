@@ -1,12 +1,11 @@
 "use client";
+export const dynamic = "force-dynamic"; // 🟢 1. This disables the static build check completely
 
 import { Suspense } from "react";
-// 🟢 FIX: Point to your actual library file
 import { supabase } from "@/lib/supabase"; 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
-// 1. The Login Component
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,8 +14,6 @@ function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-
-  // 🟢 FIX: Removed "const supabase = createClient()" because we imported it directly above
 
   useEffect(() => {
     const error = searchParams.get("error");
@@ -113,7 +110,7 @@ function LoginContent() {
   );
 }
 
-// 2. The Root Page wrapper
+// 🟢 2. Keep the Suspense wrapper too (Belt and Suspenders approach)
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
