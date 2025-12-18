@@ -18,9 +18,9 @@ function LoginContent() {
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  // Track if the last login attempt failed — used to conditionally show "Forgot Password?"
   const [showForgotLinkAfterError, setShowForgotLinkAfterError] = useState(false);
 
-  // Handle ?error= query param on load (e.g. from failed auth redirects)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -38,37 +38,33 @@ function LoginContent() {
     setSuccessMsg("");
     setShowForgotLinkAfterError(false);
 
-    // Safe origin detection with fallback to your production domain
-    const origin =
-      typeof window !== "undefined"
-        ? window.location.origin
-        : "https://visible-app.vercel.app"; // ← Your actual deployed URL
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://https://visible-app.vercel.app"; // ← Replace with your actual domain
 
     try {
       if (view === "signup") {
-        // Sign-up: redirect to callback after email confirmation
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: `${origin}/auth/callback`,
-          },
+          options: { emailRedirectTo: `${origin}/auth/callback` },
         });
         if (error) throw error;
         setSuccessMsg("Check your email for the confirmation link!");
       } 
-      else if (view === "forgot") {
-        // Password Reset: redirect straight to the update password page
+      // Inside handleAuth in app/page.tsx
+
+      else if (view === 'forgot') {
+        // --- FORGOT PASSWORD ---
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${origin}/auth/update-password`,
+          // 🟢 CHANGE: We added "?next=/dashboard/settings" to the end
+          redirectTo: `${origin}/auth/callback?next=/dashboard/settings`,
         });
+        
         if (error) throw error;
-        setSuccessMsg("If an account exists, a password reset link has been sent.");
-        setView("login");
-        setPassword(""); // Clear password field
-      } 
+        setSuccessMsg("If an account exists, we sent a password reset link to it.");
+        setView('login');
+      }
       else {
-        // Regular login
+        // Login attempt
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
@@ -80,6 +76,7 @@ function LoginContent() {
       const message = err.message || "An error occurred.";
       setErrorMsg(message);
 
+      // Only show "Forgot Password?" prominently after a login failure
       if (view === "login") {
         setShowForgotLinkAfterError(true);
       }
@@ -127,10 +124,11 @@ function LoginContent() {
             : "Login to access your dashboards."}
         </p>
 
-        {/* Messages */}
+        {/* Error / Success Messages */}
         {errorMsg && (
           <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
             {errorMsg}
+            {/* Show "Forgot Password?" right under error only after failed login */}
             {showForgotLinkAfterError && view === "login" && (
               <div className="mt-3 text-right">
                 <button
@@ -173,12 +171,13 @@ function LoginContent() {
               </label>
               <input
                 type="password"
-                required
+                required={view !== "forgot"}
                 className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
+              {/* Fallback "Forgot Password?" link always visible in login view (below password) */}
               {view === "login" && !showForgotLinkAfterError && (
                 <div className="mt-2 text-right">
                   <button
@@ -210,6 +209,7 @@ function LoginContent() {
           </button>
         </form>
 
+        {/* Bottom Links */}
         <div className="mt-6 text-center text-sm text-slate-500">
           {view === "signup" ? (
             <>
