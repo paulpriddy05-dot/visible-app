@@ -1,57 +1,56 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [status, setStatus] = useState("Verifying secure link...");
 
   useEffect(() => {
-    // Supabase auth callback includes tokens in the URL hash (#access_token=...)
-    // We need to capture the auth event that processes those hash params
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        // Determine where to redirect
-        const next = searchParams.get("next") || "/dashboard";
+    const handleCallback = async () => {
+      // 1. Get the target destination from the URL (default to dashboard)
+      const next = searchParams.get("next") || "/dashboard";
+      
+      // 2. FORCE check for a session
+      const { data: { session }, error } = await supabase.auth.getSession();
 
-        // Small delay to ensure session is fully propagated (helps with RLS)
-        setTimeout(() => {
-          router.push(next);
-        }, 100);
+      if (error) {
+        setStatus("Error verifying link. Please try again.");
+        console.error("Auth error:", error);
+        return;
       }
 
-      // Optional: Handle password recovery specifically
-      // If the link type is recovery, redirect to update-password page
-      // (Supabase adds ?type=recovery to the callback URL)
-      if (event === "PASSWORD_RECOVERY") {
-        router.push("/auth/update-password");
-      }
-    });
-
-    // Important: Trigger initial session check in case the hash was already processed
-    // (e.g., page refresh during callback)
-    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        const next = searchParams.get("next") || "/dashboard";
-        router.push(next);
+        setStatus("Login confirmed! Redirecting...");
+        // 🟢 CRITICAL: Small delay ensures the browser saves the cookie before we move
+        setTimeout(() => {
+           router.push(next);
+        }, 500); 
+      } else {
+        // 3. If no session yet, listen for the exact moment it arrives
+        setStatus("Finalizing login...");
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if (event === "SIGNED_IN" && session) {
+            setStatus("Success! Redirecting...");
+            router.push(next);
+          }
+        });
       }
-    });
-
-    // Cleanup subscription on unmount
-    return () => {
-      subscription.unsubscribe();
     };
+
+    handleCallback();
   }, [router, searchParams]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500">
-      <i className="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
-      <p className="text-lg">Completing authentication...</p>
-      <p className="text-sm mt-2">You will be redirected shortly.</p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
+      <div className="bg-white p-8 rounded-xl shadow-lg border border-slate-100 text-center">
+        <i className="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
+        <h2 className="text-xl font-bold mb-2">One moment...</h2>
+        <p className="text-slate-500">{status}</p>
+      </div>
     </div>
   );
 }

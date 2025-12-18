@@ -52,16 +52,19 @@ function LoginContent() {
       } 
       // Inside handleAuth in app/page.tsx
 
+      // Inside app/page.tsx
+
       else if (view === 'forgot') {
-        // --- FORGOT PASSWORD ---
+        const origin = typeof window !== "undefined" ? window.location.origin : "";
+        
+        // 🟢 CONFIRM THIS LINE MATCHES EXACTLY:
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          // 🟢 CHANGE: We added "?next=/dashboard/settings" to the end
           redirectTo: `${origin}/auth/callback?next=/dashboard/settings`,
         });
-        
+
         if (error) throw error;
         setSuccessMsg("If an account exists, we sent a password reset link to it.");
-        setView('login');
+        setView('login'); 
       }
       else {
         // Login attempt
