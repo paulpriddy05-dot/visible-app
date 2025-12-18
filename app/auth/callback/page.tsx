@@ -1,5 +1,6 @@
 "use client";
 
+// FORCE UPDATE: Adding Traffic Control Logic
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -7,27 +8,28 @@ import { supabase } from "@/lib/supabase";
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState("Verifying secure link...");
+  const [status, setStatus] = useState("Verifying credentials...");
 
   useEffect(() => {
     const handleCallback = async () => {
-      // 1. Get the requested destination from the URL, defaulting to dashboard
-      //    (This handles normal logins)
       const nextParam = searchParams.get("next");
       const defaultNext = "/dashboard";
 
-      // 2. Set up a listener for the specific Auth Event
+      console.log("Callback loaded. Waiting for session...");
+
+      // Listen for the specific Auth Event
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        
+        console.log("Auth Event Detected:", event);
+
         if (event === "PASSWORD_RECOVERY") {
-          // 🟢 TRAFFIC CONTROL: If this is a Password Reset, FORCE them to settings
+          // 🟢 TRAFFIC CONTROL: Only for password resets
           setStatus("Password reset verified! sending you to settings...");
           setTimeout(() => {
             router.push("/dashboard/settings");
-          }, 500);
+          }, 1000); // 1 second delay to ensure cookie is set
         } 
         else if (event === "SIGNED_IN") {
-          // 🟡 NORMAL LOGIN: Go to dashboard (or wherever they asked to go)
+          // 🟡 NORMAL LOGIN
           setStatus("Login confirmed! Redirecting...");
           setTimeout(() => {
             router.push(nextParam || defaultNext);
