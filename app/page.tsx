@@ -5,7 +5,7 @@ import { createClient } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
-// 1. The Login Logic Component
+// 1. The Login Component (Wrapped logic)
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,7 +112,7 @@ function LoginContent() {
   );
 }
 
-// 2. The Root Page wrapper (This fixes the build error!)
+// 🟢 THIS IS THE FIX VERCEL NEEDS:
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
