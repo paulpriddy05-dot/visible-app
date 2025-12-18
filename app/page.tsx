@@ -51,7 +51,7 @@ function LoginContent() {
       else if (view === 'forgot') {
         // --- FORGOT PASSWORD ---
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${origin}/auth/callback?next=/dashboard`, // Redirect to dashboard after clicking link
+          redirectTo: `${origin}/auth/callback?next=/dashboard`, // 🟢 Redirect to dashboard after clicking link
         });
         if (error) throw error;
         setSuccessMsg("If an account exists, we sent a password reset link to it.");
