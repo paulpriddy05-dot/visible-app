@@ -9,49 +9,33 @@ export default function AuthCallbackPage() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    // Supabase auth callback includes tokens in the URL hash (#access_token=...)
-    // We need to capture the auth event that processes those hash params
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === "SIGNED_IN" && session) {
-        // Determine where to redirect
-        const next = searchParams.get("next") || "/dashboard";
+    const handleCallback = async () => {
+      // 1. Check for a session
+      const { data: { session } } = await supabase.auth.getSession();
 
-        // Small delay to ensure session is fully propagated (helps with RLS)
-        setTimeout(() => {
-          router.push(next);
-        }, 100);
-      }
-
-      // Optional: Handle password recovery specifically
-      // If the link type is recovery, redirect to update-password page
-      // (Supabase adds ?type=recovery to the callback URL)
-      if (event === "PASSWORD_RECOVERY") {
-        router.push("/auth/update-password");
-      }
-    });
-
-    // Important: Trigger initial session check in case the hash was already processed
-    // (e.g., page refresh during callback)
-    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
+        // 2. Check if the URL tells us where to go (e.g., ?next=/dashboard/settings)
+        // If no instruction, default to "/dashboard"
         const next = searchParams.get("next") || "/dashboard";
         router.push(next);
+      } else {
+        // 3. Fallback listener
+        supabase.auth.onAuthStateChange((event) => {
+          if (event === "SIGNED_IN") {
+            const next = searchParams.get("next") || "/dashboard";
+            router.push(next);
+          }
+        });
       }
-    });
-
-    // Cleanup subscription on unmount
-    return () => {
-      subscription.unsubscribe();
     };
+
+    handleCallback();
   }, [router, searchParams]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-500">
       <i className="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
-      <p className="text-lg">Completing authentication...</p>
-      <p className="text-sm mt-2">You will be redirected shortly.</p>
+      <p>Verifying and redirecting...</p>
     </div>
   );
 }
