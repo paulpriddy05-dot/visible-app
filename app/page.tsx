@@ -1,11 +1,12 @@
 "use client";
 
 import { Suspense } from "react";
-import { createClient } from "@/utils/supabase/client";
+// 🟢 FIX: Point to your actual library file
+import { supabase } from "@/lib/supabase"; 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
-// 1. The Login Component (Wrapped logic)
+// 1. The Login Component
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -15,7 +16,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
 
-  const supabase = createClient();
+  // 🟢 FIX: Removed "const supabase = createClient()" because we imported it directly above
 
   useEffect(() => {
     const error = searchParams.get("error");
@@ -112,7 +113,7 @@ function LoginContent() {
   );
 }
 
-// 🟢 THIS IS THE FIX VERCEL NEEDS:
+// 2. The Root Page wrapper
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
