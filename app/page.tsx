@@ -1,63 +1,122 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { Suspense } from "react";
+import { createClient } from "@/utils/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
 
-export default function LoginPage() {
-  const [loading, setLoading] = useState(false);
+// 1. The Login Logic Component
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectUrl = searchParams.get("redirect"); // 🟢 Capture the return link
+  const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const handleLogin = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        // If there is a redirect link (like an invite), go there. Otherwise, go to dashboard.
-        redirectTo: redirectUrl ? redirectUrl : `${window.location.origin}/dashboard`,
-      },
-    });
+  const supabase = createClient();
 
+  useEffect(() => {
+    const error = searchParams.get("error");
     if (error) {
-      alert("Error logging in: " + error.message);
-      setLoading(false);
+      setErrorMsg(decodeURIComponent(error));
     }
+  }, [searchParams]);
+
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+
+    if (isSignUp) {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) setErrorMsg(error.message);
+      else alert("Check your email for the confirmation link!");
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) setErrorMsg(error.message);
+      else router.push("/dashboard");
+    }
+    setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div className="bg-blue-600 p-8 text-center">
-          <div className="inline-flex h-16 w-16 bg-white/20 rounded-2xl items-center justify-center mb-4 backdrop-blur-sm">
-            <i className="fas fa-church text-3xl text-white"></i>
-          </div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Visible</h1>
-          <p className="text-blue-100 mt-2">Visible</p>
-        </div>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-8">
+        <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">
+          {isSignUp ? "Create Account" : "Welcome Back"}
+        </h1>
+        <p className="text-center text-slate-500 mb-6">
+          {isSignUp ? "Start visualizing your ministry data." : "Login to access your dashboards."}
+        </p>
 
-        <div className="p-8 space-y-6">
-          <div className="text-center text-slate-500 text-sm">
-            Sign in to access your team dashboards.
+        {errorMsg && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleAuth} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <input
+              type="email"
+              required
+              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+              placeholder="you@church.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+            <input
+              type="password"
+              required
+              className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
 
           <button
-            onClick={handleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 p-4 rounded-xl text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-300 transition-all group"
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-all disabled:opacity-50 flex justify-center items-center"
           >
-            {loading ? (
-              <span className="animate-spin"><i className="fas fa-circle-notch"></i></span>
-            ) : (
-              <>
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-6 h-6" alt="Google" />
-                <span>Continue with Google</span>
-              </>
-            )}
+            {loading ? <i className="fas fa-spinner fa-spin"></i> : (isSignUp ? "Sign Up" : "Login")}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-slate-500">
+          {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+          <button
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-blue-600 font-bold hover:underline"
+          >
+            {isSignUp ? "Login" : "Sign Up"}
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+// 2. The Root Page wrapper (This fixes the build error!)
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }
