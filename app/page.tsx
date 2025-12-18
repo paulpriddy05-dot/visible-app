@@ -1,14 +1,17 @@
 "use client";
-export const dynamic = "force-dynamic"; // 🟢 1. This disables the static build check completely
+
+// We keep this to be safe, but we are removing the hook that causes the crash
+export const dynamic = "force-dynamic";
 
 import { Suspense } from "react";
 import { supabase } from "@/lib/supabase"; 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation"; // 🟢 REMOVED useSearchParams
 import { useState, useEffect } from "react";
 
 function LoginContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // 🟢 REMOVED: const searchParams = useSearchParams(); 
+  
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
@@ -16,11 +19,15 @@ function LoginContent() {
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    const error = searchParams.get("error");
+    // 🟢 NEW STRATEGY: Read the URL manually using standard Browser JS
+    // The build server doesn't have 'window', so it skips this line and doesn't crash.
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    
     if (error) {
       setErrorMsg(decodeURIComponent(error));
     }
-  }, [searchParams]);
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,7 +117,7 @@ function LoginContent() {
   );
 }
 
-// 🟢 2. Keep the Suspense wrapper too (Belt and Suspenders approach)
+// We keep the wrapper just to be polite to Next.js, but the trigger is gone.
 export default function LoginPage() {
   return (
     <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
