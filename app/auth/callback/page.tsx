@@ -2,48 +2,59 @@
 
 import { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-// ⚠️ IMPORTANT: Check this import. If you use '@supabase/ssr', import your createClient from your utils folder instead.
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { createBrowserClient } from '@supabase/ssr';
 
 function HandleAuth() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   useEffect(() => {
-    const handleLogin = async () => {
-      // 1. Initialize Supabase
-      const supabase = createClientComponentClient();
+    const handleCallback = async () => {
+      // Create the browser/client Supabase instance
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      );
 
-      // 2. Check if the URL has a session (handles both #hash and ?code)
-      const { data: { session }, error } = await supabase.auth.getSession();
+      // Supabase automatically processes the #access_token hash from the callback URL
+      // We just need to wait for the auth state change
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          const next = searchParams.get('next') || '/dashboard';
+          router.push(next);
+          router.refresh(); // Ensures layout/components re-render with new session
+        }
+      });
 
+      // Also check current session in case hash was already processed (e.g., page refresh)
+      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // 3. Get the 'next' URL parameter, or default to dashboard
         const next = searchParams.get('next') || '/dashboard';
-        
-        // 4. Send them to the dashboard
         router.push(next);
-        router.refresh(); // Ensure the layout updates with the new user data
-      } else {
-        // If no session found, maybe redirect to login with error
-        console.error('Login failed:', error);
-        // Optional: router.push('/login?error=AuthFailed');
+        router.refresh();
       }
+
+      // Cleanup subscription
+      return () => subscription.unsubscribe();
     };
 
-    handleLogin();
+    handleCallback();
   }, [router, searchParams]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <p className="text-lg">Processing login...</p>
+    <div className="flex items-center justify-center min-h-screen bg-slate-50">
+      <div className="text-center">
+        <i className="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
+        <p className="text-lg text-slate-600">Processing authentication...</p>
+        <p className="text-sm text-slate-500 mt-2">You will be redirected shortly.</p>
+      </div>
     </div>
   );
 }
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
       <HandleAuth />
     </Suspense>
   );
