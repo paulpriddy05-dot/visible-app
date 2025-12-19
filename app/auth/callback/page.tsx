@@ -9,52 +9,40 @@ function HandleAuth() {
   const router = useRouter();
 
   useEffect(() => {
-    const handleCallback = async () => {
-      // Create the browser/client Supabase instance
+    const handleLogin = async () => {
+      // 1. Initialize Supabase (New SDK Syntax)
+      // We pass the env vars directly here to create the client
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       );
 
-      // Supabase automatically processes the #access_token hash from the callback URL
-      // We just need to wait for the auth state change
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          const next = searchParams.get('next') || '/dashboard';
-          router.push(next);
-          router.refresh(); // Ensures layout/components re-render with new session
-        }
-      });
+      // 2. Check session (works for both Implicit #hash and PKCE ?code)
+      const { data: { session }, error } = await supabase.auth.getSession();
 
-      // Also check current session in case hash was already processed (e.g., page refresh)
-      const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // 3. Redirect to dashboard
         const next = searchParams.get('next') || '/dashboard';
         router.push(next);
-        router.refresh();
+        router.refresh(); 
+      } else {
+        console.error('Login failed:', error);
       }
-
-      // Cleanup subscription
-      return () => subscription.unsubscribe();
     };
 
-    handleCallback();
+    handleLogin();
   }, [router, searchParams]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-50">
-      <div className="text-center">
-        <i className="fas fa-circle-notch fa-spin text-4xl text-blue-600 mb-4"></i>
-        <p className="text-lg text-slate-600">Processing authentication...</p>
-        <p className="text-sm text-slate-500 mt-2">You will be redirected shortly.</p>
-      </div>
+    <div className="flex items-center justify-center min-h-screen">
+      <p className="text-lg">Processing login...</p>
     </div>
   );
 }
 
 export default function AuthCallbackPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense fallback={<div>Loading...</div>}>
       <HandleAuth />
     </Suspense>
   );
