@@ -10,6 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
+
 // 🔴 GOOGLE KEYS
 const GOOGLE_API_KEY = "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o";
 const GOOGLE_CLIENT_ID = "1072792448216-g7c565rslebga1m964jbi86esu46k24r.apps.googleusercontent.com";
@@ -61,6 +62,7 @@ export default function DynamicDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [isMapping, setIsMapping] = useState(false); // Controls the "Mapper" screen
   const [showDocPreview, setShowDocPreview] = useState<string | null>(null);
+  const [showTutorial, setShowTutorial] = useState(false); // 🆕 Tutorial State
   const [openPicker] = useDrivePicker();
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -227,17 +229,6 @@ export default function DynamicDashboard() {
   const getEmbedUrl = (url: string) => { if(url.includes("/document/d/")) return url.replace("/edit", "/preview"); if(url.includes("/spreadsheets/d/")) return url.replace("/edit", "/preview"); if(url.includes("/presentation/d/")) return url.replace("/edit", "/preview"); return url; };
   const getFileIcon = (item: any) => { if (item.iconUrl) return <img src={item.iconUrl} className="w-5 h-5" alt="icon" />; const title = item.title.toLowerCase(); let iconClass = "fas fa-link text-slate-400"; if (title.includes("calendar")) iconClass = "fas fa-calendar-alt text-emerald-500"; else if (title.includes("plan") || title.includes("strategy")) iconClass = "fas fa-map text-blue-500"; else if (title.includes("offering")) iconClass = "fas fa-hand-holding-heart text-green-500"; else if (isGoogleDoc(item.url)) iconClass = "fab fa-google-drive text-slate-500"; return <i className={`${iconClass} text-lg`}></i>; };
   const isCardEditable = (card: any) => card && card.source === 'manual';
-  <div className="flex items-center gap-4">
-                <button onClick={() => { if (!config?.share_token) return alert("Error: No token."); const link = `${window.location.origin}/join/${config.share_token}`; navigator.clipboard.writeText(link); alert("Invite Link Copied!"); }} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"><i className="fas fa-user-plus"></i><span>Invite</span></button>
-                
-                <div className="relative"><i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i><input type="text" placeholder="find a document..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"/></div>
-                
-                <button onClick={addNewCard} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-colors shadow-sm"><i className="fas fa-plus"></i><span>New Card</span></button>
-                
-                {/* 👇 ADD THE SIGN OUT BUTTON HERE */}
-                <div className="h-6 w-px bg-slate-700 mx-1"></div> {/* Optional Divider Line */}
-                <SignOutButton />
-            </div>
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
 
@@ -251,11 +242,28 @@ export default function DynamicDashboard() {
               <div className="h-8 w-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg">{config?.title ? config.title.substring(0, 2).toUpperCase() : 'DB'}</div>
               <span className="font-semibold text-lg tracking-tight hidden md:block">{config?.title || "Loading..."}</span>
             </div>
+            
+            {/* 🆕 Navbar Buttons Area */}
             <div className="flex items-center gap-4">
                 <button onClick={() => { if (!config?.share_token) return alert("Error: No token."); const link = `${window.location.origin}/join/${config.share_token}`; navigator.clipboard.writeText(link); alert("Invite Link Copied!"); }} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"><i className="fas fa-user-plus"></i><span>Invite</span></button>
+                
                 <div className="relative"><i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i><input type="text" placeholder="find a document..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"/></div>
+                
                 <button onClick={addNewCard} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-colors shadow-sm"><i className="fas fa-plus"></i><span>New Card</span></button>
+                
+                {/* 🆕 Help Button */}
+                <button 
+                  onClick={() => setShowTutorial(true)} 
+                  className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"
+                  title="How to use Visible"
+                >
+                  <i className="fas fa-question text-sm"></i>
+                </button>
+
+                <div className="h-6 w-px bg-slate-700 mx-1"></div> 
+                <SignOutButton />
             </div>
+
           </div>
         </div>
       </nav>
@@ -318,6 +326,7 @@ export default function DynamicDashboard() {
             {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
+                 {/* 🆕 EDITABLE TITLE */}
                  <h3 
                  ref={titleRef}
                  contentEditable={isEditing}
@@ -325,8 +334,7 @@ export default function DynamicDashboard() {
                  className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}
                  >
                     {activeCard.title}
-                    
-                </h3>
+                 </h3>
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
@@ -469,6 +477,82 @@ export default function DynamicDashboard() {
                 )
               )}
               {showDocPreview && <iframe src={showDocPreview} className="w-full h-full border-none bg-white flex-1" title="Doc Preview"></iframe>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🆕 TUTORIAL MODAL */}
+      {showTutorial && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-slate-900/80 backdrop-blur-sm transition-opacity">
+          <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            
+            {/* Header */}
+            <div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-bold text-slate-800">Quick Start Guide</h3>
+                <p className="text-sm text-slate-500">How to get the most out of Visible.</p>
+              </div>
+              <button onClick={() => setShowTutorial(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
+                <i className="fas fa-times text-xl"></i>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-8 space-y-8">
+              
+              {/* Tip 1: Editing */}
+              <div className="flex gap-5">
+                <div className="h-12 w-12 shrink-0 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 text-xl shadow-sm">
+                  <i className="fas fa-pen"></i>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-lg">Edit Mode</h4>
+                  <p className="text-slate-600 text-sm leading-relaxed mt-1">
+                    Click any card to open it. Look for the <strong>"Add or Remove Files"</strong> button in the top right. 
+                    This unlocks the card so you can rename it (just click the title!), delete files, or add new blocks.
+                  </p>
+                </div>
+              </div>
+
+              {/* Tip 2: Google Drive */}
+              <div className="flex gap-5">
+                <div className="h-12 w-12 shrink-0 bg-yellow-100 rounded-xl flex items-center justify-center text-yellow-600 text-xl shadow-sm">
+                  <i className="fab fa-google-drive"></i>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-lg">Connect Your Drive</h4>
+                  <p className="text-slate-600 text-sm leading-relaxed mt-1">
+                    While in Edit Mode, use the <strong>"Add from Drive"</strong> button to pull in Google Docs, Sheets, or Slides. 
+                    We create a direct link so your dashboard is always up to date.
+                  </p>
+                </div>
+              </div>
+
+              {/* Tip 3: Data Viz */}
+              <div className="flex gap-5">
+                <div className="h-12 w-12 shrink-0 bg-purple-100 rounded-xl flex items-center justify-center text-purple-600 text-xl shadow-sm">
+                  <i className="fas fa-magic"></i>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-lg">Visualize Data</h4>
+                  <p className="text-slate-600 text-sm leading-relaxed mt-1">
+                    Have a CSV or Spreadsheet? Add it as a widget. Then click <strong>"Visualize"</strong> inside the card 
+                    to map your columns (Title, Date, Status) into a beautiful custom layout.
+                  </p>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 bg-slate-50 border-t border-slate-200 text-right">
+              <button 
+                onClick={() => setShowTutorial(false)} 
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors shadow-sm"
+              >
+                Got it!
+              </button>
             </div>
           </div>
         </div>
