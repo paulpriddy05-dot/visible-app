@@ -117,18 +117,25 @@ function LoginContent() {
     setRecoveryError("");
     setRecoverySuccess("");
 
+    // 1. Update the password
     const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
 
     if (error) {
       setRecoveryError(error.message);
       setRecoveryLoading(false);
-   } else {
-  setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
+    } else {
+      // 2. CRITICAL FIX: Refresh the session to ensure cookies are set
+      await supabase.auth.refreshSession();
+      
+      setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
 
-  setTimeout(() => {
-    window.location.replace("/dashboard");
-  }, 1000);
-}
+      // 3. Use router.push and refresh for a smoother transition
+      // (Wait a moment so they can read the success message)
+      setTimeout(() => {
+        router.push("/dashboard");
+        router.refresh(); 
+      }, 1000);
+    }
   };
 
   const switchToForgot = () => {
