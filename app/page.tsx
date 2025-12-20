@@ -4,10 +4,10 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* --- NAVIGATION --- */}
-      <nav className="fixed w-full bg-white/80 backdrop-blur-md z-50 border-b border-slate-100">
+      <nav className="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-9 w-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-blue-200 shadow-lg">
+            <div className="h-9 w-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-indigo-200 shadow-lg">
               V
             </div>
             <span className="text-xl font-bold text-slate-900 tracking-tight">Visible</span>
@@ -31,50 +31,65 @@ export default function LandingPage() {
 
       {/* --- HERO SECTION --- */}
       <main className="flex-1 flex flex-col items-center pt-40 pb-20 px-6 text-center max-w-7xl mx-auto">
-        <div className="inline-block mb-6 px-4 py-1.5 rounded-full bg-blue-50 text-blue-700 font-bold text-xs uppercase tracking-widest border border-blue-100">
-          Now in Public Beta
+        <div className="inline-block mb-6 px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-xs uppercase tracking-widest border border-indigo-100">
+          Public Beta
         </div>
         
-        <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 mb-8 tracking-tight leading-tight max-w-4xl">
-          Turn your spreadsheets into <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">beautiful dashboards.</span>
+        <h1 className="text-5xl md:text-7xl font-extrabold text-slate-900 mb-8 tracking-tight leading-tight max-w-5xl">
+          The home screen your <br className="hidden md:block"/>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500">Google Drive is missing.</span>
         </h1>
         
-        <p className="text-xl text-slate-500 max-w-2xl mb-12 leading-relaxed">
-          Stop sending screenshots of Excel. Visible connects to your existing Google Sheets and Drive files to build live, shareable command centers in seconds.
+        <p className="text-xl text-slate-500 max-w-3xl mb-12 leading-relaxed">
+          Stop digging through endless folders and search bars. Visible lets you curate 
+          your Docs, Sheets, and Slides into <strong>visual cards</strong>—giving you a dashboard that actually makes sense.
         </p>
         
         <div className="flex flex-col sm:flex-row gap-4 w-full justify-center mb-20">
           <Link 
             href="/login" 
-            className="px-8 py-4 bg-blue-600 text-white font-bold rounded-xl text-lg hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl shadow-blue-200 hover:-translate-y-1"
+            className="px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl text-lg hover:bg-indigo-700 transition-all shadow-xl hover:shadow-2xl shadow-indigo-200 hover:-translate-y-1"
           >
-            Start Visualizing for Free
+            Organize My Workspace
           </Link>
           <a 
             href="#features" 
             className="px-8 py-4 bg-white text-slate-700 font-bold rounded-xl text-lg border border-slate-200 hover:bg-slate-50 transition-all"
           >
-            See How It Works
+            See an Example
           </a>
         </div>
 
-        {/* --- APP PREVIEW MOCKUP --- */}
+        {/* --- APP PREVIEW (Abstract) --- */}
         <div className="relative w-full max-w-6xl rounded-2xl bg-slate-900 p-2 shadow-2xl ring-1 ring-slate-900/10 mb-24 overflow-hidden group">
-           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-tr from-blue-500/20 to-purple-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
-           <div className="bg-slate-100 rounded-xl aspect-video flex items-center justify-center relative overflow-hidden">
-             {/* Mockup Placeholder - Replace with screenshot later */}
-             <div className="text-center p-12">
-                <div className="grid grid-cols-3 gap-6 opacity-50 scale-90 blur-[1px] group-hover:blur-0 group-hover:scale-100 transition-all duration-700">
-                    <div className="h-40 bg-white rounded-xl shadow-sm"></div>
-                    <div className="h-40 bg-white rounded-xl shadow-sm"></div>
-                    <div className="h-40 bg-white rounded-xl shadow-sm"></div>
-                    <div className="col-span-2 h-48 bg-white rounded-xl shadow-sm"></div>
-                    <div className="h-48 bg-white rounded-xl shadow-sm"></div>
+           <div className="bg-slate-50 rounded-xl aspect-video flex items-center justify-center relative overflow-hidden">
+             
+             {/* Abstract Representation of "Cards" vs "Files" */}
+             <div className="flex flex-col items-center gap-8 p-12 w-full h-full justify-center">
+                {/* Visual Cards Row */}
+                <div className="flex gap-6 animate-fade-in-up">
+                    <div className="w-64 h-40 bg-white rounded-xl shadow-md border border-slate-200 p-5 flex flex-col justify-between hover:scale-105 transition-transform duration-500">
+                        <div className="flex gap-2">
+                            <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center text-blue-600"><i className="fas fa-file-word"></i></div>
+                            <div className="w-8 h-8 rounded bg-green-100 flex items-center justify-center text-green-600"><i className="fas fa-file-excel"></i></div>
+                        </div>
+                        <div className="h-2 w-2/3 bg-slate-200 rounded"></div>
+                        <div className="h-2 w-1/2 bg-slate-100 rounded"></div>
+                    </div>
+                    <div className="w-64 h-40 bg-white rounded-xl shadow-md border border-slate-200 p-5 flex flex-col justify-between hover:scale-105 transition-transform duration-500 delay-100">
+                        <div className="w-8 h-8 rounded bg-yellow-100 flex items-center justify-center text-yellow-600"><i className="fas fa-file-powerpoint"></i></div>
+                        <div className="h-2 w-3/4 bg-slate-200 rounded"></div>
+                        <div className="h-2 w-1/3 bg-slate-100 rounded"></div>
+                    </div>
+                     <div className="w-64 h-40 bg-white rounded-xl shadow-md border border-slate-200 p-5 flex flex-col justify-between hover:scale-105 transition-transform duration-500 delay-200 hidden md:flex">
+                        <div className="w-8 h-8 rounded bg-red-100 flex items-center justify-center text-red-600"><i className="fas fa-file-pdf"></i></div>
+                        <div className="h-2 w-1/2 bg-slate-200 rounded"></div>
+                        <div className="h-2 w-full bg-slate-100 rounded"></div>
+                    </div>
                 </div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="bg-slate-900/80 text-white px-6 py-2 rounded-full font-bold backdrop-blur-sm">Dashboard Preview</span>
-                </div>
+                <p className="text-slate-400 font-medium mt-4">Curate scattered files into clean, visual Project Cards.</p>
              </div>
+
            </div>
         </div>
 
@@ -83,34 +98,34 @@ export default function LandingPage() {
             
             {/* Feature 1 */}
             <div className="space-y-4">
-                <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600 text-2xl mb-2">
-                    <i className="fas fa-table"></i>
+                <div className="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 text-2xl mb-2">
+                    <i className="fas fa-th-large"></i>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">Sync with Google Sheets</h3>
+                <h3 className="text-xl font-bold text-slate-900">Curated Cards, Not Folders</h3>
                 <p className="text-slate-500 leading-relaxed">
-                    Don't change how you work. Update your spreadsheet, and your Visible dashboard updates instantly. No complex migrations required.
+                    Folders hide your work. Visible lets you pin Docs, Slides, and PDFs to visual cards so your team can find exactly what they need in seconds.
                 </p>
             </div>
 
             {/* Feature 2 */}
             <div className="space-y-4">
-                <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600 text-2xl mb-2">
-                    <i className="fas fa-folder-open"></i>
+                <div className="h-12 w-12 bg-pink-100 rounded-lg flex items-center justify-center text-pink-600 text-2xl mb-2">
+                    <i className="fas fa-magic"></i>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">Centralize Resources</h3>
+                <h3 className="text-xl font-bold text-slate-900">Tailored to You</h3>
                 <p className="text-slate-500 leading-relaxed">
-                    Stop digging through Drive. Pin important Docs, PDFs, and Slides directly to your dashboard for one-click access.
+                    Drag, drop, and resize. Build a dashboard that fits your specific workflow—whether you're managing a creative project, a budget, or a team roster.
                 </p>
             </div>
 
             {/* Feature 3 */}
             <div className="space-y-4">
-                <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600 text-2xl mb-2">
-                    <i className="fas fa-layer-group"></i>
+                <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center text-green-600 text-2xl mb-2">
+                    <i className="fas fa-chart-line"></i>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">Drag & Drop Organization</h3>
+                <h3 className="text-xl font-bold text-slate-900">Live Data Sync</h3>
                 <p className="text-slate-500 leading-relaxed">
-                    Create manual cards for quick announcements, organize workflows, and customize your layout to fit your team's needs.
+                    Need numbers? Connect a Google Sheet and watch it transform into a live metric on your dashboard. No more static screenshots.
                 </p>
             </div>
 
