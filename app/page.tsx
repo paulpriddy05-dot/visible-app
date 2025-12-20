@@ -47,10 +47,9 @@ function LoginContent() {
         setRecoverySuccess("");
         setErrorMsg("");
         setSuccessMsg("");
-      } else if (event === "SIGNED_IN" && session) {
-        // Force full page redirect
-        window.location.href = "/dashboard";
-      }
+} else if (event === "SIGNED_IN" && session) {
+  window.location.replace("/dashboard");
+}
     });
 
     return () => listener.subscription.unsubscribe();
@@ -123,14 +122,13 @@ function LoginContent() {
     if (error) {
       setRecoveryError(error.message);
       setRecoveryLoading(false);
-    } else {
-      setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
+   } else {
+  setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
 
-      // Force full redirect as fallback
-      setTimeout(() => {
-        window.location.href = "/dashboard";
-      }, 1000);
-    }
+  setTimeout(() => {
+    window.location.replace("/dashboard");
+  }, 1000);
+}
   };
 
   const switchToForgot = () => {
