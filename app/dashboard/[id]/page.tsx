@@ -318,7 +318,15 @@ export default function DynamicDashboard() {
             {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
-                 <h3 className="text-2xl font-bold">{activeCard.title}</h3>
+                 <h3 
+                 ref={titleRef}
+                 contentEditable={isEditing}
+                 suppressContentEditableWarning={true}
+                 className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}
+                 >
+                    {activeCard.title}
+                    
+                </h3>
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
