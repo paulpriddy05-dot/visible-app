@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
+  // Create an initial response
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -18,9 +19,11 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value, options }) =>
             request.cookies.set(name, value)
           );
+          
           supabaseResponse = NextResponse.next({
             request,
           });
+          
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -29,16 +32,24 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // IMPORTANT: You *must* run this to validate the user
+  // 1. Get the current user
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // PROTECTED ROUTES LOGIC
+  // 2. PROTECTED ROUTE LOGIC
   // If user is NOT logged in and tries to access dashboard, kick them to login
   if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/"; // or '/login'
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  // 3. PUBLIC ROUTE LOGIC (The Fix)
+  // If user IS logged in and is sitting on the Login page (/), kick them to Dashboard
+  if (request.nextUrl.pathname === "/" && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
