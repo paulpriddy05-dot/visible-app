@@ -38,23 +38,23 @@ function LoginContent() {
     }
   }, []);
 
-  // Listen for PASSWORD_RECOVERY event (triggered when reset link is clicked)
+  // Listen for PASSWORD_RECOVERY and SIGNED_IN events
   useEffect(() => {
-  const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-    if (event === "PASSWORD_RECOVERY") {
-      setInRecoveryMode(true);
-      setRecoveryError("");
-      setRecoverySuccess("");
-      setErrorMsg("");
-      setSuccessMsg("");
-    } else if (event === "SIGNED_IN" && session) {
-      // Force full redirect
-      window.location.href = "/dashboard";
-    }
-  });
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setInRecoveryMode(true);
+        setRecoveryError("");
+        setRecoverySuccess("");
+        setErrorMsg("");
+        setSuccessMsg("");
+      } else if (event === "SIGNED_IN" && session) {
+        // Force full page redirect
+        window.location.href = "/dashboard";
+      }
+    });
 
-  return () => listener.subscription.unsubscribe();
-}, []);
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,7 +81,7 @@ function LoginContent() {
         setSuccessMsg("Check your email for the confirmation link!");
       } else if (view === "forgot") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${origin}/auth/update-password`, // Keep this — it may work with wildcard
+          redirectTo: `${origin}/auth/update-password`,
         });
         if (error) throw error;
         setSuccessMsg("If an account exists, a password reset link has been sent.");
@@ -107,30 +107,31 @@ function LoginContent() {
   };
 
   const handleRecoverySubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (recoveryPassword.length < 6) {
-    setRecoveryError("Password must be at least 6 characters.");
-    return;
-  }
+    if (recoveryPassword.length < 6) {
+      setRecoveryError("Password must be at least 6 characters.");
+      return;
+    }
 
-  setRecoveryLoading(true);
-  setRecoveryError("");
-  setRecoverySuccess("");
+    setRecoveryLoading(true);
+    setRecoveryError("");
+    setRecoverySuccess("");
 
-  const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
+    const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
 
- if (error) {
-  setRecoveryError(error.message);
-  setRecoveryLoading(false);
-} else {
-  setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
+    if (error) {
+      setRecoveryError(error.message);
+      setRecoveryLoading(false);
+    } else {
+      setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
 
-  // Force full reload to dashboard — guarantees session is recognized
-  setTimeout(() => {
-    window.location.replace("/dashboard");
-  }, 1000);
-}
+      // Force full redirect as fallback
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1000);
+    }
+  };
 
   const switchToForgot = () => {
     setView("forgot");
@@ -153,62 +154,62 @@ function LoginContent() {
     setShowForgotLinkAfterError(false);
   };
 
-  // Show recovery form if in recovery mode
+  // Recovery form when in recovery mode
   if (inRecoveryMode) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-8">
-        <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">
-          Set New Password
-        </h1>
-        <p className="text-center text-slate-500 mb-6">
-          Enter a strong new password for your account.
-        </p>
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
+        <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-8">
+          <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">
+            Set New Password
+          </h1>
+          <p className="text-center text-slate-500 mb-6">
+            Enter a strong new password for your account.
+          </p>
 
-        {recoveryError && (
-          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
-            {recoveryError}
-          </div>
-        )}
-
-        {recoverySuccess ? (
-          <div className="text-center py-8">
-            <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 inline-block">
-              {recoverySuccess}
+          {recoveryError && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
+              {recoveryError}
             </div>
-            <p className="text-slate-500">Taking you to your dashboard...</p>
-          </div>
-        ) : (
-          <form onSubmit={handleRecoverySubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                New Password
-              </label>
-              <input
-                type="password"
-                required
-                className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
-                value={recoveryPassword}
-                onChange={(e) => setRecoveryPassword(e.target.value)}
-              />
-            </div>
+          )}
 
-            <button
-              disabled={recoveryLoading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-all disabled:opacity-50 flex justify-center items-center"
-            >
-              {recoveryLoading ? (
-                <i className="fas fa-spinner fa-spin"></i>
-              ) : (
-                "Update Password"
-              )}
-            </button>
-          </form>
-        )}
+          {recoverySuccess ? (
+            <div className="text-center py-8">
+              <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 inline-block">
+                {recoverySuccess}
+              </div>
+              <p className="text-slate-500">Taking you to your dashboard...</p>
+            </div>
+          ) : (
+            <form onSubmit={handleRecoverySubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  required
+                  className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                  value={recoveryPassword}
+                  onChange={(e) => setRecoveryPassword(e.target.value)}
+                />
+              </div>
+
+              <button
+                disabled={recoveryLoading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition-all disabled:opacity-50 flex justify-center items-center"
+              >
+                {recoveryLoading ? (
+                  <i className="fas fa-spinner fa-spin"></i>
+                ) : (
+                  "Update Password"
+                )}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   // Normal login/signup/forgot views
   return (
@@ -229,7 +230,6 @@ function LoginContent() {
             : "Login to access your dashboards."}
         </p>
 
-        {/* Messages */}
         {errorMsg && (
           <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
             {errorMsg}
