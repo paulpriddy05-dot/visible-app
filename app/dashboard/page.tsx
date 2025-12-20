@@ -62,7 +62,7 @@ export default function DashboardLobby() {
       </nav>
 
       <div className="max-w-5xl mx-auto py-12 px-6">
-        <h2 className="text-2xl font-bold text-slate-800 mb-6">Select a Workspace</h2>
+        <h2 className="text-2xl font-bold text-slate-800 mb-6">Select a Dashboard</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {dashboards.map((dash) => (
                 <div key={dash.id} onClick={() => router.push(`/dashboard/${dash.id}`)} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-400 cursor-pointer transition-all group">
