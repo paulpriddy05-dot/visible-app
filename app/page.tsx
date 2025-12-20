@@ -125,10 +125,11 @@ function LoginContent() {
   } else {
     setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
 
-    // Manual fallback redirect — ensures it always happens
+    // Force redirect (fallback if SIGNED_IN event is delayed)
     setTimeout(() => {
       router.push("/dashboard");
-    }, 1500);
+      router.refresh(); // Ensures dashboard loads fresh session
+    }, 1000);
   }
 };
 
@@ -155,27 +156,30 @@ function LoginContent() {
 
   // Show recovery form if in recovery mode
   if (inRecoveryMode) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
-        <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-8">
-          <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">
-            Set New Password
-          </h1>
-          <p className="text-center text-slate-500 mb-6">
-            Enter a strong new password for your account.
-          </p>
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-8">
+        <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">
+          Set New Password
+        </h1>
+        <p className="text-center text-slate-500 mb-6">
+          Enter a strong new password for your account.
+        </p>
 
-          {recoveryError && (
-            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
-              {recoveryError}
-            </div>
-          )}
-          {recoverySuccess && (
-            <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200">
+        {recoveryError && (
+          <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-200">
+            {recoveryError}
+          </div>
+        )}
+
+        {recoverySuccess ? (
+          <div className="text-center py-8">
+            <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 inline-block">
               {recoverySuccess}
             </div>
-          )}
-
+            <p className="text-slate-500">Taking you to your dashboard...</p>
+          </div>
+        ) : (
           <form onSubmit={handleRecoverySubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -201,10 +205,11 @@ function LoginContent() {
               )}
             </button>
           </form>
-        </div>
+        )}
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // Normal login/signup/forgot views
   return (
