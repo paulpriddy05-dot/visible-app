@@ -107,26 +107,30 @@ function LoginContent() {
   };
 
   const handleRecoverySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (recoveryPassword.length < 6) {
-      setRecoveryError("Password must be at least 6 characters.");
-      return;
-    }
+  e.preventDefault();
+  if (recoveryPassword.length < 6) {
+    setRecoveryError("Password must be at least 6 characters.");
+    return;
+  }
 
-    setRecoveryLoading(true);
-    setRecoveryError("");
-    setRecoverySuccess("");
+  setRecoveryLoading(true);
+  setRecoveryError("");
+  setRecoverySuccess("");
 
-    const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
+  const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
 
-    if (error) {
-      setRecoveryError(error.message);
-    } else {
-      setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
-      // Redirect handled by SIGNED_IN event listener above
-    }
+  if (error) {
+    setRecoveryError(error.message);
     setRecoveryLoading(false);
-  };
+  } else {
+    setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
+
+    // Manual fallback redirect — ensures it always happens
+    setTimeout(() => {
+      router.push("/dashboard");
+    }, 1500);
+  }
+};
 
   const switchToForgot = () => {
     setView("forgot");
