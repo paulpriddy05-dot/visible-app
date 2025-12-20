@@ -40,21 +40,21 @@ function LoginContent() {
 
   // Listen for PASSWORD_RECOVERY event (triggered when reset link is clicked)
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setInRecoveryMode(true);
-        setRecoveryError("");
-        setRecoverySuccess("");
-        setErrorMsg("");
-        setSuccessMsg("");
-      } else if (event === "SIGNED_IN" && session) {
-        // After successful password update, user is signed in
-        router.push("/dashboard");
-      }
-    });
+  const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") {
+      setInRecoveryMode(true);
+      setRecoveryError("");
+      setRecoverySuccess("");
+      setErrorMsg("");
+      setSuccessMsg("");
+    } else if (event === "SIGNED_IN" && session) {
+      // Force full navigation + session refresh
+      window.location.href = "/dashboard";
+    }
+  });
 
-    return () => listener.subscription.unsubscribe();
-  }, [router]);
+  return () => listener.subscription.unsubscribe();
+}, [router]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,6 +108,7 @@ function LoginContent() {
 
   const handleRecoverySubmit = async (e: React.FormEvent) => {
   e.preventDefault();
+
   if (recoveryPassword.length < 6) {
     setRecoveryError("Password must be at least 6 characters.");
     return;
@@ -125,11 +126,11 @@ function LoginContent() {
   } else {
     setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
 
-    // Force redirect (fallback if SIGNED_IN event is delayed)
+    // Ultimate fallback: force full page navigation to dashboard
+    // (bypasses any Next.js router quirks in recovery mode)
     setTimeout(() => {
-      router.push("/dashboard");
-      router.refresh(); // Ensures dashboard loads fresh session
-    }, 1000);
+      window.location.href = "/dashboard";
+    }, 800);
   }
 };
 
