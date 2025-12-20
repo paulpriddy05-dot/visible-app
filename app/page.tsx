@@ -126,10 +126,10 @@ function LoginContent() {
 } else {
   setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
 
-  // Force redirect as fallback
+  // Force full reload to dashboard — guarantees session is recognized
   setTimeout(() => {
-    window.location.href = "/dashboard";
-  }, 800);
+    window.location.replace("/dashboard");
+  }, 1000);
 }
 
   const switchToForgot = () => {
