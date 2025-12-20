@@ -335,6 +335,19 @@ export default function DynamicDashboard() {
                  >
                     {activeCard.title}
                  </h3>
+                 {/* ✅ COLOR PICKER GOES HERE */}
+                 {isEditing && isCardEditable(activeCard) && (
+                   <div className="flex gap-2 mt-3 animate-in fade-in slide-in-from-left-2 duration-200">
+                     {Object.keys(COLOR_MAP).map((c) => (
+                       <button
+                         key={c}
+                         onClick={(e) => { e.stopPropagation(); updateColor(c); }}
+                         className={`w-6 h-6 rounded-full border-2 border-white/40 hover:scale-110 transition-transform shadow-sm ${COLOR_MAP[c]} ${activeCard.color === c ? 'ring-2 ring-white scale-110' : ''}`}
+                         title={`Change to ${c}`}
+                       />
+                     ))}
+                   </div>
+                 )}
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
@@ -347,7 +360,7 @@ export default function DynamicDashboard() {
                  {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
                     <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
                  )}
-                 {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Add or Remove Files"}</button>)}
+                 {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
                  {isEditing && !showDocPreview && isCardEditable(activeCard) && (<button onClick={() => deleteCard(activeCard.id)} className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors"><i className="fas fa-trash"></i></button>)}
                  {showDocPreview && <button onClick={() => setShowDocPreview(null)} className="bg-white/20 px-3 py-1 rounded text-sm font-medium"><i className="fas fa-arrow-left mr-2"></i> Back</button>}
                  <button onClick={() => setActiveModal(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><i className="fas fa-times text-xl"></i></button>
