@@ -48,13 +48,13 @@ function LoginContent() {
       setErrorMsg("");
       setSuccessMsg("");
     } else if (event === "SIGNED_IN" && session) {
-      // Force full navigation + session refresh
+      // Force full redirect
       window.location.href = "/dashboard";
     }
   });
 
   return () => listener.subscription.unsubscribe();
-}, [router]);
+}, []);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,19 +120,17 @@ function LoginContent() {
 
   const { error } = await supabase.auth.updateUser({ password: recoveryPassword });
 
-  if (error) {
-    setRecoveryError(error.message);
-    setRecoveryLoading(false);
-  } else {
-    setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
+ if (error) {
+  setRecoveryError(error.message);
+  setRecoveryLoading(false);
+} else {
+  setRecoverySuccess("Password updated successfully! Redirecting to dashboard...");
 
-    // Ultimate fallback: force full page navigation to dashboard
-    // (bypasses any Next.js router quirks in recovery mode)
-    setTimeout(() => {
-      window.location.href = "/dashboard";
-    }, 800);
-  }
-};
+  // Force redirect as fallback
+  setTimeout(() => {
+    window.location.href = "/dashboard";
+  }, 800);
+}
 
   const switchToForgot = () => {
     setView("forgot");
