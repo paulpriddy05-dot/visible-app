@@ -1,124 +1,70 @@
-'use client';
+import Link from 'next/link';
 
-import { Suspense, useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
-
-function LoginContent() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(false);
-  const [view, setView] = useState<'login' | 'signup' | 'forgot'>('login');
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Initialize Supabase
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
-
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage('');
-    setErrorMsg('');
-
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-
-    try {
-      if (view === 'signup') {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: `${origin}/auth/callback` },
-        });
-        if (error) throw error;
-        setMessage('Check your email for the confirmation link!');
-      } 
-      else if (view === 'forgot') {
-        // This triggers the email, which redirects to /auth/callback, 
-        // which then redirects to /auth/update-password
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${origin}/auth/update-password`,
-        });
-        if (error) throw error;
-        setMessage('Password reset link sent! Check your email.');
-        setView('login'); 
-      } 
-      else {
-        // Login
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        router.push('/dashboard');
-        router.refresh();
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export default function LandingPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-slate-200 p-8">
-        <h1 className="text-2xl font-bold text-center mb-2 text-slate-800">
-          {view === 'signup' ? 'Create Account' : view === 'forgot' ? 'Reset Password' : 'Welcome Back'}
-        </h1>
-        
-        {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{errorMsg}</div>}
-        {message && <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg">{message}</div>}
-
-        <form onSubmit={handleAuth} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
-            <input 
-              type="email" required 
-              className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-              value={email} onChange={(e) => setEmail(e.target.value)} 
-            />
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      {/* Navigation Bar */}
+      <nav className="flex items-center justify-between p-6 max-w-7xl mx-auto w-full">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">
+            V
           </div>
-
-          {view !== 'forgot' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
-              <input 
-                type="password" required 
-                className="w-full p-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                value={password} onChange={(e) => setPassword(e.target.value)} 
-              />
-            </div>
-          )}
-
-          <button disabled={loading} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg">
-            {loading ? 'Processing...' : (view === 'signup' ? 'Sign Up' : view === 'forgot' ? 'Send Link' : 'Login')}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-slate-500 space-x-2">
-          {view === 'login' && (
-            <>
-              <button onClick={() => setView('signup')} className="text-blue-600 hover:underline">Sign Up</button>
-              <span>|</span>
-              <button onClick={() => setView('forgot')} className="text-blue-600 hover:underline">Forgot Password?</button>
-            </>
-          )}
-          {view !== 'login' && (
-            <button onClick={() => setView('login')} className="text-blue-600 hover:underline">Back to Login</button>
-          )}
+          <span className="text-xl font-bold text-slate-800">Visible</span>
         </div>
-      </div>
-    </div>
-  );
-}
+        <div className="flex gap-4">
+          <Link 
+            href="/login" 
+            className="px-5 py-2 text-slate-600 font-medium hover:text-slate-900 transition-colors"
+          >
+            Log In
+          </Link>
+          <Link 
+            href="/login" // Or /signup if you separate them later
+            className="px-5 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+          >
+            Get Started
+          </Link>
+        </div>
+      </nav>
 
-export default function LoginPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <LoginContent />
-    </Suspense>
+      {/* Hero Section */}
+      <main className="flex-1 flex flex-col items-center justify-center text-center px-4 py-20">
+        <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 mb-6 tracking-tight">
+          Visualize Your <span className="text-blue-600">Ministry Data</span>.
+        </h1>
+        <p className="text-xl text-slate-500 max-w-2xl mb-10 leading-relaxed">
+          Transform spreadsheets and scattered metrics into clear, actionable dashboards. 
+          See the health of your organization at a glance.
+        </p>
+        
+        <div className="flex gap-4 flex-col sm:flex-row">
+          <Link 
+            href="/login" 
+            className="px-8 py-4 bg-slate-900 text-white font-bold rounded-xl text-lg hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+          >
+            Launch Dashboard
+          </Link>
+          <a 
+            href="#features" 
+            className="px-8 py-4 bg-white text-slate-700 font-bold rounded-xl text-lg border border-slate-200 hover:bg-slate-50 transition-all"
+          >
+            Learn More
+          </a>
+        </div>
+
+        {/* Optional: Dashboard Preview Image */}
+        <div className="mt-16 w-full max-w-5xl bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 overflow-hidden">
+           <div className="bg-slate-100 rounded-xl h-64 md:h-96 flex items-center justify-center text-slate-400">
+             {/* Replace this with an actual screenshot later */}
+             <span className="font-medium">Dashboard Preview Image</span>
+           </div>
+        </div>
+      </main>
+
+      {/* Simple Footer */}
+      <footer className="py-8 text-center text-slate-400 text-sm">
+        &copy; {new Date().getFullYear()} Visible App. All rights reserved.
+      </footer>
+    </div>
   );
 }
