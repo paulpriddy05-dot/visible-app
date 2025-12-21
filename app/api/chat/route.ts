@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     // 🟢 CHANGE IS HERE: Switch to the standard 'gemini-1.5-pro'
     // This model is the most widely available and robust.
     const { text } = await generateText({
-      model: google('gemini-1.5-pro'), 
+      model: google('gemini-pro'), 
       messages,
     });
 
