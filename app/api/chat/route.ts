@@ -15,9 +15,10 @@ export async function POST(req: Request) {
 
     const { messages } = await req.json();
 
-    // 🟢 CHANGE IS HERE: Use the specific versioned ID 'gemini-1.5-flash-001'
+    // 🟢 CHANGE IS HERE: Switch to the standard 'gemini-1.5-pro'
+    // This model is the most widely available and robust.
     const { text } = await generateText({
-      model: google('gemini-1.5-flash-001'), 
+      model: google('gemini-1.5-pro'), 
       messages,
     });
 
