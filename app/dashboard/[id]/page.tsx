@@ -10,6 +10,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
+import DashboardChat from "@/components/DashboardChat";
+
 
 // 🔴 GOOGLE KEYS
 const GOOGLE_API_KEY = "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o";
@@ -573,4 +575,29 @@ export default function DynamicDashboard() {
 
     </div>
   );
+  {/* 👇 PASTE THIS RIGHT HERE 👇 */}
+      <DashboardChat 
+        contextData={{
+          title: config?.title,
+          cards: manualCards.map(c => ({ 
+             title: c.title, 
+             resources: c.resources?.map((r:any) => r.items.map((i:any) => i.title)).flat() 
+          })),
+          schedule: scheduleCards.map(c => ({ 
+             week: c.title, 
+             date: c.date_label, 
+             details: `${c.scripture || ''} ${c.worship || ''}` 
+          })),
+          spreadsheets: genericWidgets.map(w => ({ 
+             title: w.title, 
+             rowCount: w.rowCount,
+             sampleData: w.data?.slice(0, 20)
+          })),
+          missions: missionCard ? { 
+             status: missionCard.upcomingStatus, 
+             nextTrip: missionCard.upcomingLoc, 
+             openSpots: missionCard.upcomingOpen 
+          } : "No missions module active"
+        }} 
+      />
 }
