@@ -560,7 +560,7 @@ export default function DynamicDashboard() {
 
             </div>
 
-            {/* Footer */}
+          {/* Footer of Tutorial Modal */}
             <div className="p-6 bg-slate-50 border-t border-slate-200 text-right">
               <button 
                 onClick={() => setShowTutorial(false)} 
@@ -573,7 +573,6 @@ export default function DynamicDashboard() {
         </div>
       )}
 
-      {/* 👇 CHAT COMPONENT IS NOW CORRECTLY PLACED 👇 */}
       <DashboardChat 
         contextData={{
           title: config?.title,
@@ -599,7 +598,6 @@ export default function DynamicDashboard() {
         }} 
       />
 
-    </div> 
-    {/* 👆 This closes the main <div className="pb-20..."> wrapper */}
+    </div>
   );
 }
