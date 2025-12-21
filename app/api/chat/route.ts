@@ -19,7 +19,7 @@ export async function POST(req: Request) {
 
     // 3. Generate the answer using our configured 'google' instance
     const { text } = await generateText({
-      model: google('models/gemini-1.5-flash'),
+      model: google('gemini-1.5-flash'),
       messages,
     });
 
