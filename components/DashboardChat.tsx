@@ -7,28 +7,32 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // 1️⃣ Get 'setInput' and 'append' so we can manually control the chat
   const { messages, input, setInput, append, handleInputChange } = useChat({
     api: '/api/chat',
     body: { context: contextData },
   });
 
-  // 2️⃣ New Robust Send Handler
-  const sendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();       // 🛑 STOP the page reload
-    if (!input.trim()) return; // Don't send empty messages
+  // ⚡️ MAIN SEND FUNCTION
+  const handleSend = async () => {
+    if (!input.trim()) return;
 
     const userMessage = input;
-    setInput('');             // 🧹 Clear the text box immediately
+    setInput(''); // Clear input immediately
     
-    // 🚀 Manually trigger the AI
     await append({
       role: 'user',
       content: userMessage,
     });
   };
 
-  // Scroll to bottom when new messages arrive
+  // ⌨️ KEYBOARD LISTENER
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault(); // Stop default form behavior
+      handleSend();       // Fire the send function
+    }
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -79,17 +83,22 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
             <div ref={messagesEndRef} />
           </div>
 
-          <form onSubmit={sendMessage} className="p-3 bg-white border-t border-slate-100 flex gap-2 shrink-0">
+          {/* 🟢 UPDATED: No <form> tag, just a div with onKeyDown */}
+          <div className="p-3 bg-white border-t border-slate-100 flex gap-2 shrink-0">
             <input
               className="flex-1 bg-slate-100 border-0 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 placeholder:text-slate-400"
               value={input}
               onChange={handleInputChange}
+              onKeyDown={handleKeyDown}  // 👈 THIS IS THE FIX
               placeholder="Ask a question..."
             />
-            <button type="submit" className="bg-indigo-600 text-white h-9 w-9 rounded-xl flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm">
+            <button 
+              onClick={handleSend} 
+              className="bg-indigo-600 text-white h-9 w-9 rounded-xl flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm"
+            >
               <i className="fas fa-paper-plane text-xs"></i>
             </button>
-          </form>
+          </div>
 
         </div>
       )}
