@@ -4,13 +4,29 @@ import { streamText } from 'ai';
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
-  // We only need 'messages' now. The context is already inside them.
-  const { messages } = await req.json();
+  try {
+    // 1. Check if the key exists on the server
+    if (!process.env.GOOGLE_API_KEY) {
+      throw new Error("GOOGLE_API_KEY is missing in Vercel Environment Variables.");
+    }
 
-  const result = await streamText({
-    model: google('models/gemini-1.5-flash'),
-    messages, // 👈 We pass the history (which includes our hidden data) directly
-  });
+    // 2. Parse the incoming message
+    const { messages } = await req.json();
 
-  return result.toDataStreamResponse();
+    // 3. Call Gemini
+    const result = await streamText({
+      model: google('models/gemini-1.5-flash'),
+      messages,
+    });
+
+    return result.toDataStreamResponse();
+
+  } catch (error: any) {
+    console.error("Backend Error:", error);
+    // Return the actual error message to the frontend so we can see it
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 }
