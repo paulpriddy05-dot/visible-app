@@ -30,62 +30,42 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
     `
   };
 
-  // 2. Manual Send Function (Robust & Crash-Proof)
+  // 2. Manual Send Function (Standard Mode)
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
     const userText = input;
-    setInput(''); // Clear input
+    setInput(''); 
     setIsLoading(true);
 
-    // Create the new user message
+    // Add User Message to UI
     const newUserMsg: Message = { id: Date.now().toString(), role: 'user', content: userText };
-    
-    // Optimistically update UI
     const newHistory = [...messages, newUserMsg];
     setMessages(newHistory);
 
     try {
-      // 3. Manual Fetch Call - Bypassing the crashing SDK hook
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          // We send the system message + all history + new message
           messages: [systemMessage, ...newHistory] 
         }),
       });
 
-      if (!response.ok) throw new Error(response.statusText);
+      const data = await response.json();
 
-      // 4. Stream Reader - This reads the AI response as it types
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      
-      if (!reader) return;
+      if (!response.ok) throw new Error(data.error || "Failed to fetch");
 
-      // Create a placeholder for the AI's answer
-      const aiMsgId = (Date.now() + 1).toString();
-      let aiContent = '';
-      
-      setMessages(prev => [...prev, { id: aiMsgId, role: 'assistant', content: '' }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        aiContent += chunk;
-
-        // Live update the last message
-        setMessages(prev => 
-          prev.map(m => m.id === aiMsgId ? { ...m, content: aiContent } : m)
-        );
-      }
+      // ✅ Success: Add the AI's full answer
+      setMessages(prev => [...prev, { 
+        id: Date.now().toString(), 
+        role: 'assistant', 
+        content: data.text 
+      }]);
 
     } catch (error) {
       console.error("Chat Failed:", error);
-      setMessages(prev => [...prev, { id: 'error', role: 'assistant', content: '⚠️ Sorry, I had trouble connecting. Please try again.' }]);
+      setMessages(prev => [...prev, { id: 'error', role: 'assistant', content: '⚠️ I had trouble reading the answer. Please try again.' }]);
     } finally {
       setIsLoading(false);
     }
