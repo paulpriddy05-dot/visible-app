@@ -573,9 +573,7 @@ export default function DynamicDashboard() {
         </div>
       )}
 
-    </div>
-  );
-  {/* 👇 PASTE THIS RIGHT HERE 👇 */}
+      {/* 👇 CHAT COMPONENT IS NOW CORRECTLY PLACED 👇 */}
       <DashboardChat 
         contextData={{
           title: config?.title,
@@ -600,4 +598,8 @@ export default function DynamicDashboard() {
           } : "No missions module active"
         }} 
       />
+
+    </div> 
+    {/* 👆 This closes the main <div className="pb-20..."> wrapper */}
+  );
 }
