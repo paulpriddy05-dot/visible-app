@@ -5,31 +5,34 @@ import { useState, useRef, useEffect } from 'react';
 
 export default function DashboardChat({ contextData }: { contextData: any }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [localInput, setLocalInput] = useState(''); // 1. We manage the text ourselves
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { messages, input, setInput, append, handleInputChange } = useChat({
+  // 2. We only ask the hook for messages and the append function
+  const { messages, append } = useChat({
     api: '/api/chat',
     body: { context: contextData },
   });
 
-  // ⚡️ MAIN SEND FUNCTION
+  // 3. Simple, manual send function
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!localInput.trim()) return;
 
-    const userMessage = input;
-    setInput(''); // Clear input immediately
+    const content = localInput;
+    setLocalInput(''); // Clear text box immediately
     
+    // Force the AI to add this message
     await append({
       role: 'user',
-      content: userMessage,
+      content: content,
     });
   };
 
-  // ⌨️ KEYBOARD LISTENER
+  // 4. Listen for Enter key
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Stop default form behavior
-      handleSend();       // Fire the send function
+      e.preventDefault(); // Stop any default browser weirdness
+      handleSend();
     }
   };
 
@@ -69,8 +72,8 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
                 </div>
             )}
             
-            {messages.map(m => (
-              <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            {messages.map((m, index) => (
+              <div key={index} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                   m.role === 'user' 
                     ? 'bg-indigo-600 text-white rounded-br-none' 
@@ -83,13 +86,13 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* 🟢 UPDATED: No <form> tag, just a div with onKeyDown */}
+          {/* INPUT AREA - No <form> tags here */}
           <div className="p-3 bg-white border-t border-slate-100 flex gap-2 shrink-0">
             <input
               className="flex-1 bg-slate-100 border-0 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 placeholder:text-slate-400"
-              value={input}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}  // 👈 THIS IS THE FIX
+              value={localInput}
+              onChange={(e) => setLocalInput(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Ask a question..."
             />
             <button 
