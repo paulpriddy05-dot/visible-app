@@ -5,47 +5,46 @@ import { useState, useRef, useEffect } from 'react';
 
 export default function DashboardChat({ contextData }: { contextData: any }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [localInput, setLocalInput] = useState(''); // 1. We manage the text ourselves
+  const [localInput, setLocalInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // 2. We only ask the hook for messages and the append function
-  const { messages, append } = useChat({
+  // 1. Grab 'isLoading' and 'error' to debug silent failures
+  const { messages, append, isLoading, error } = useChat({
     api: '/api/chat',
     body: { context: contextData },
+    onError: (err) => {
+      console.error("Chat API Error:", err);
+    }
   });
 
-  // 3. Simple, manual send function
   const handleSend = async () => {
     if (!localInput.trim()) return;
-
     const content = localInput;
-    setLocalInput(''); // Clear text box immediately
+    setLocalInput(''); // Clear UI
     
-    // Force the AI to add this message
-    await append({
-      role: 'user',
-      content: content,
-    });
+    try {
+      await append({ role: 'user', content });
+    } catch (e) {
+      console.error("Failed to send:", e);
+    }
   };
 
-  // 4. Listen for Enter key
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Stop any default browser weirdness
+      e.preventDefault();
       handleSend();
     }
   };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   return (
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-6 right-6 h-14 w-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-2xl flex items-center justify-center z-50 transition-all hover:scale-105 border-4 border-white"
-        title="Ask AI about your dashboard"
       >
         {isOpen ? <i className="fas fa-times text-xl"></i> : <i className="fas fa-sparkles text-xl"></i>}
       </button>
@@ -62,13 +61,18 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scroll">
-            {messages.length === 0 && (
+            
+            {/* ERROR DISPLAY: This will tell us what's wrong */}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs">
+                <strong>Error:</strong> {error.message || "Check your API Key"}
+              </div>
+            )}
+
+            {messages.length === 0 && !error && (
                 <div className="text-center text-slate-400 text-sm mt-10 px-6">
-                    <div className="bg-slate-100 h-12 w-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <i className="fas fa-magic text-indigo-400 text-lg"></i>
-                    </div>
                     <p>I've read your dashboard data.</p>
-                    <p className="mt-2 text-xs opacity-75">Try asking: <br/>"What is the schedule for next week?" or "Do we have any missions trips planned?"</p>
+                    <p className="mt-2 text-xs opacity-75">Ask me anything!</p>
                 </div>
             )}
             
@@ -83,10 +87,18 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
                 </div>
               </div>
             ))}
+            
+            {/* LOADING SPINNER */}
+            {isLoading && (
+              <div className="flex justify-start">
+                <div className="bg-white text-slate-500 px-4 py-2 rounded-2xl rounded-bl-none text-xs flex items-center gap-2 shadow-sm border border-slate-200">
+                  <i className="fas fa-circle-notch fa-spin"></i> Thinking...
+                </div>
+              </div>
+            )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* INPUT AREA - No <form> tags here */}
           <div className="p-3 bg-white border-t border-slate-100 flex gap-2 shrink-0">
             <input
               className="flex-1 bg-slate-100 border-0 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 placeholder:text-slate-400"
@@ -94,10 +106,12 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
               onChange={(e) => setLocalInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask a question..."
+              disabled={isLoading} 
             />
             <button 
-              onClick={handleSend} 
-              className="bg-indigo-600 text-white h-9 w-9 rounded-xl flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm"
+              onClick={handleSend}
+              disabled={isLoading}
+              className="bg-indigo-600 text-white h-9 w-9 rounded-xl flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
             >
               <i className="fas fa-paper-plane text-xs"></i>
             </button>
