@@ -1,24 +1,28 @@
-import { google } from '@ai-sdk/google';
-import { generateText } from 'ai'; // 👈 We use this instead of streamText
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { generateText } from 'ai';
 
-export const maxDuration = 60; // Give Gemini time to think
+export const maxDuration = 60;
+
+// 1. Manually configure the Google provider with YOUR key
+const google = createGoogleGenerativeAI({
+  apiKey: process.env.GOOGLE_API_KEY || "", 
+});
 
 export async function POST(req: Request) {
   try {
-    // 1. Check API Key
+    // 2. Double-check the key exists before we start
     if (!process.env.GOOGLE_API_KEY) {
-      throw new Error("GOOGLE_API_KEY is missing.");
+      return Response.json({ error: "Server Error: GOOGLE_API_KEY is missing." }, { status: 500 });
     }
 
     const { messages } = await req.json();
 
-    // 2. Generate the full answer (Non-Streaming)
+    // 3. Generate the answer using our configured 'google' instance
     const { text } = await generateText({
       model: google('models/gemini-1.5-flash'),
       messages,
     });
 
-    // 3. Send it back as simple JSON
     return Response.json({ text });
 
   } catch (error: any) {
