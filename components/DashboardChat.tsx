@@ -7,17 +7,28 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const { messages, input, handleInputChange, handleSubmit } = useChat({
+  // 1️⃣ Get 'setInput' and 'append' so we can manually control the chat
+  const { messages, input, setInput, append, handleInputChange } = useChat({
     api: '/api/chat',
     body: { context: contextData },
   });
 
-  // 🟢 FIX: Explicitly prevent page reload
-  const sendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSubmit(e);
+  // 2️⃣ New Robust Send Handler
+  const sendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();       // 🛑 STOP the page reload
+    if (!input.trim()) return; // Don't send empty messages
+
+    const userMessage = input;
+    setInput('');             // 🧹 Clear the text box immediately
+    
+    // 🚀 Manually trigger the AI
+    await append({
+      role: 'user',
+      content: userMessage,
+    });
   };
 
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -68,7 +79,6 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* 🟢 FIX: Updated onSubmit handler */}
           <form onSubmit={sendMessage} className="p-3 bg-white border-t border-slate-100 flex gap-2 shrink-0">
             <input
               className="flex-1 bg-slate-100 border-0 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 placeholder:text-slate-400"
