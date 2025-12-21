@@ -8,25 +8,38 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
   const [localInput, setLocalInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Memoize the context so it doesn't trigger re-renders
-  // This prevents the hook from resetting or crashing if parent data changes
-  const stableContext = useMemo(() => contextData, [JSON.stringify(contextData)]);
-  
+  // 1. Create the "System Message" that holds your data
+  // We use useMemo so we don't recreate this heavy object on every render
+  const initialMessages = useMemo(() => {
+    return [
+      {
+        id: 'system-context',
+        role: 'system', // 👈 This marks it as instruction, not user chat
+        content: `
+          You are an AI analyst for a dashboard called "Visible".
+          Here is the live data you have access to:
+          ${JSON.stringify(contextData, null, 2)}
+          
+          Answer questions based ONLY on this data. Be concise and friendly.
+        `,
+      }
+    ];
+  }, []); // Empty dependency array = created once on mount
+
+  // 2. Initialize Chat with this history
   const { messages, append, isLoading, error } = useChat({
     api: '/api/chat',
-    // 2. Pass context here (Standard way) instead of in append()
-    body: { context: stableContext }, 
-    onError: (err) => console.error("Chat API Error:", err),
+    initialMessages: initialMessages as any, // 👈 Pre-load the data
+    onError: (err) => console.error("Chat Error:", err),
   });
 
   const handleSend = async () => {
     if (!localInput.trim()) return;
-    
     const content = localInput;
-    setLocalInput(''); // Clear UI immediately
+    setLocalInput(''); 
     
+    // 3. Simple send - no complex options to crash the SDK
     try {
-      // 3. Simple append call (No complex options to crash it)
       await append({ role: 'user', content });
     } catch (e) {
       console.error("Failed to send:", e);
@@ -66,21 +79,16 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scroll">
             
-            {/* ERROR DEBUGGER */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs break-words">
-                <strong>Error:</strong> {error.message || "Check Console"}
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs">
+                Error: {error.message}
               </div>
             )}
 
-            {messages.length === 0 && !error && (
-                <div className="text-center text-slate-400 text-sm mt-10 px-6">
-                    <p>I've read your dashboard data.</p>
-                    <p className="mt-2 text-xs opacity-75">Ask me anything!</p>
-                </div>
-            )}
-            
-            {messages.map((m, index) => (
+            {/* 4. Filter out the 'system' message so the user doesn't see the raw JSON */}
+            {messages
+              .filter(m => m.role !== 'system') 
+              .map((m, index) => (
               <div key={index} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
                   m.role === 'user' 
@@ -92,6 +100,14 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
               </div>
             ))}
             
+            {/* Show welcome only if no visible messages exist */}
+            {messages.filter(m => m.role !== 'system').length === 0 && !error && (
+                <div className="text-center text-slate-400 text-sm mt-10 px-6">
+                    <p>I've read your dashboard data.</p>
+                    <p className="mt-2 text-xs opacity-75">Ask me anything!</p>
+                </div>
+            )}
+
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-white text-slate-500 px-4 py-2 rounded-2xl rounded-bl-none text-xs flex items-center gap-2 shadow-sm border border-slate-200">
