@@ -8,22 +8,26 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
   const [localInput, setLocalInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // 1. Grab 'isLoading' and 'error' to debug silent failures
+  // 1. Initialize hook WITHOUT the heavy body data
   const { messages, append, isLoading, error } = useChat({
     api: '/api/chat',
-    body: { context: contextData },
-    onError: (err) => {
-      console.error("Chat API Error:", err);
-    }
+    onError: (err) => console.error("Chat API Error:", err),
   });
 
+  // 2. Send Function
   const handleSend = async () => {
     if (!localInput.trim()) return;
+    
     const content = localInput;
-    setLocalInput(''); // Clear UI
+    setLocalInput(''); // Clear UI immediately
     
     try {
-      await append({ role: 'user', content });
+      // 3. Attach data HERE instead of in the hook
+      // This is safer for dynamic data and React 19
+      await append(
+        { role: 'user', content }, 
+        { body: { context: contextData } } 
+      );
     } catch (e) {
       console.error("Failed to send:", e);
     }
@@ -62,10 +66,9 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scroll">
             
-            {/* ERROR DISPLAY: This will tell us what's wrong */}
             {error && (
               <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs">
-                <strong>Error:</strong> {error.message || "Check your API Key"}
+                <strong>Error:</strong> {error.message || "Check API Key"}
               </div>
             )}
 
@@ -88,7 +91,6 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
               </div>
             ))}
             
-            {/* LOADING SPINNER */}
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-white text-slate-500 px-4 py-2 rounded-2xl rounded-bl-none text-xs flex items-center gap-2 shadow-sm border border-slate-200">
