@@ -1,20 +1,24 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 export default function DashboardChat({ contextData }: { contextData: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const [localInput, setLocalInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 1. Memoize the context so it doesn't trigger re-renders
+  // This prevents the hook from resetting or crashing if parent data changes
+  const stableContext = useMemo(() => contextData, [JSON.stringify(contextData)]);
   
-  // 1. Initialize hook WITHOUT the heavy body data
   const { messages, append, isLoading, error } = useChat({
     api: '/api/chat',
+    // 2. Pass context here (Standard way) instead of in append()
+    body: { context: stableContext }, 
     onError: (err) => console.error("Chat API Error:", err),
   });
 
-  // 2. Send Function
   const handleSend = async () => {
     if (!localInput.trim()) return;
     
@@ -22,12 +26,8 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
     setLocalInput(''); // Clear UI immediately
     
     try {
-      // 3. Attach data HERE instead of in the hook
-      // This is safer for dynamic data and React 19
-      await append(
-        { role: 'user', content }, 
-        { body: { context: contextData } } 
-      );
+      // 3. Simple append call (No complex options to crash it)
+      await append({ role: 'user', content });
     } catch (e) {
       console.error("Failed to send:", e);
     }
@@ -66,9 +66,10 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scroll">
             
+            {/* ERROR DEBUGGER */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs">
-                <strong>Error:</strong> {error.message || "Check API Key"}
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs break-words">
+                <strong>Error:</strong> {error.message || "Check Console"}
               </div>
             )}
 
