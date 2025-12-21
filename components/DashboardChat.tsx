@@ -1,15 +1,21 @@
 'use client';
 
-import { useChat } from 'ai/react'; // Correct import for React (same as @ai-sdk/react)
-import { useState, useRef, useEffect } from 'react';
+import { useChat } from '@ai-sdk/react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 export default function DashboardChat({ contextData }: { contextData: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const [localInput, setLocalInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 1. Memoize the context so it doesn't trigger re-renders
+  // This prevents the hook from resetting or crashing if parent data changes
+  const stableContext = useMemo(() => contextData, [JSON.stringify(contextData)]);
   
-  const { messages, sendMessage, isLoading, error } = useChat({
+  const { messages, append, isLoading, error } = useChat({
     api: '/api/chat',
+    // 2. Pass context here (Standard way) instead of in append()
+    body: { context: stableContext }, 
     onError: (err) => console.error("Chat API Error:", err),
   });
 
@@ -17,22 +23,18 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
     if (!localInput.trim()) return;
     
     const content = localInput;
-    setLocalInput(''); // Clear input immediately
+    setLocalInput(''); // Clear UI immediately
     
     try {
-      // New API: sendMessage with structured message + data
-      await sendMessage({
-        content,
-      }, {
-        data: { context: contextData }, // Your dynamic context data here
-      });
+      // 3. Simple append call (No complex options to crash it)
+      await append({ role: 'user', content });
     } catch (e) {
       console.error("Failed to send:", e);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) { // Allow Shift+Enter for new lines if needed
+    if (e.key === 'Enter') {
       e.preventDefault();
       handleSend();
     }
@@ -64,9 +66,10 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
 
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scroll">
             
+            {/* ERROR DEBUGGER */}
             {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs">
-                <strong>Error:</strong> {error.message || "Check API Key or connection"}
+              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-red-600 text-xs break-words">
+                <strong>Error:</strong> {error.message || "Check Console"}
               </div>
             )}
 
@@ -110,7 +113,7 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
             />
             <button 
               onClick={handleSend}
-              disabled={isLoading || !localInput.trim()}
+              disabled={isLoading}
               className="bg-indigo-600 text-white h-9 w-9 rounded-xl flex items-center justify-center hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50"
             >
               <i className="fas fa-paper-plane text-xs"></i>
