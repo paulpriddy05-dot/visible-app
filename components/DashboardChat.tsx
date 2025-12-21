@@ -7,20 +7,23 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
   const [isOpen, setIsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // This hook handles the streaming connection to your /api/chat route
   const { messages, input, handleInputChange, handleSubmit } = useChat({
     api: '/api/chat',
-    body: { context: contextData }, // 👈 This sends your dashboard data to the AI
+    body: { context: contextData },
   });
 
-  // Auto-scroll to bottom of chat
+  // 🟢 FIX: Explicitly prevent page reload
+  const sendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSubmit(e);
+  };
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   return (
     <>
-      {/* 1. The Floating "Sparkles" Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-6 right-6 h-14 w-14 bg-indigo-600 hover:bg-indigo-700 text-white rounded-full shadow-2xl flex items-center justify-center z-50 transition-all hover:scale-105 border-4 border-white"
@@ -29,11 +32,9 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
         {isOpen ? <i className="fas fa-times text-xl"></i> : <i className="fas fa-sparkles text-xl"></i>}
       </button>
 
-      {/* 2. The Chat Window */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-96 h-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col z-50 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
           
-          {/* Header */}
           <div className="bg-slate-900 text-white p-4 flex items-center gap-3 shrink-0">
              <div className="h-8 w-8 bg-indigo-500 rounded-lg flex items-center justify-center font-bold text-xs">AI</div>
              <div>
@@ -42,7 +43,6 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
              </div>
           </div>
 
-          {/* Messages Area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 custom-scroll">
             {messages.length === 0 && (
                 <div className="text-center text-slate-400 text-sm mt-10 px-6">
@@ -68,8 +68,8 @@ export default function DashboardChat({ contextData }: { contextData: any }) {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area */}
-          <form onSubmit={handleSubmit} className="p-3 bg-white border-t border-slate-100 flex gap-2 shrink-0">
+          {/* 🟢 FIX: Updated onSubmit handler */}
+          <form onSubmit={sendMessage} className="p-3 bg-white border-t border-slate-100 flex gap-2 shrink-0">
             <input
               className="flex-1 bg-slate-100 border-0 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800 placeholder:text-slate-400"
               value={input}
