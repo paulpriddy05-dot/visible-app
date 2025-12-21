@@ -33,8 +33,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Send to Google (Using your available model: gemini-2.0-flash)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+    // 🟢 FIX: Use 'gemini-flash-latest'
+    // This model is explicitly in your allowed list and has better free-tier quotas.
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`;
 
     const response = await fetch(url, {
       method: 'POST',
@@ -46,7 +47,8 @@ export async function POST(req: Request) {
 
     if (!response.ok) {
       console.error("Google API Error:", data);
-      return Response.json({ error: data.error?.message || "Google API Error" }, { status: 500 });
+      // Pass the specific error back so you can see it
+      return Response.json({ error: data.error?.message || "Quota Exceeded or API Error" }, { status: 500 });
     }
 
     // 3. Extract Answer
