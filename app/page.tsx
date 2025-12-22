@@ -8,12 +8,17 @@ export default function LandingPage() {
       {/* --- NAVIGATION --- */}
       <nav className="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-slate-100 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 sm:h-9 sm:w-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg sm:text-xl shadow-indigo-200 shadow-lg">
+          
+          {/* 🟢 NEW LOGO: Matches your image (Serif V + Sans Text) */}
+          <div className="flex items-baseline gap-1 select-none cursor-default">
+            <span className="font-serif text-4xl sm:text-5xl font-bold text-slate-900 leading-none">
               V
-            </div>
-            <span className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Visible</span>
+            </span>
+            <span className="text-xl sm:text-2xl font-medium text-slate-900 tracking-tight">
+              Visible
+            </span>
           </div>
+
           <div className="flex items-center gap-4 sm:gap-6">
             <Link 
               href="/login" 
@@ -116,10 +121,13 @@ export default function LandingPage() {
       {/* --- FOOTER --- */}
       <footer className="bg-slate-50 border-t border-slate-200 py-12 text-center">
         <div className="max-w-7xl mx-auto px-6 flex flex-col items-center">
-            <div className="flex items-center gap-2 mb-6 opacity-50 grayscale hover:grayscale-0 transition-all cursor-default">
-                <div className="h-6 w-6 bg-slate-400 rounded-md flex items-center justify-center text-white font-bold text-xs">V</div>
-                <span className="font-bold text-slate-600">Visible</span>
+            
+            {/* 🟢 NEW LOGO IN FOOTER */}
+            <div className="flex items-baseline gap-1 mb-6 opacity-50 grayscale hover:grayscale-0 transition-all cursor-default">
+                <span className="font-serif text-2xl font-bold text-slate-900 leading-none">V</span>
+                <span className="text-lg font-bold text-slate-600 tracking-tight">Visible</span>
             </div>
+
             <p className="text-slate-400 text-sm">
                 &copy; {new Date().getFullYear()} Visible App. Built for modern teams.
             </p>
