@@ -274,14 +274,65 @@ export default function DynamicDashboard() {
       else { setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c)); await supabase.from('Weeks').update({ settings: newSettings }).eq('id', card.id); }
   };
 
-  const addSection = async () => { const name = prompt("New Section Name:"); if (!name) return; const newSections = [...sections, name]; setSections(newSections); await supabase.from('dashboards').update({ settings: { ...config.settings, sections: newSections } }).eq('id', dashboardId); };
+  // 🟢 SQL-POWERED SECTION MANAGEMENT
+  const addSection = async () => {
+      const name = prompt("New Section Name:");
+      if (!name) return;
+      
+      // 1. Optimistic UI Update (Show it immediately)
+      const newSections = [...sections, name];
+      setSections(newSections);
+      
+      // 2. Call SQL Function
+      const { error } = await supabase.rpc('add_dashboard_section', { 
+        p_dashboard_id: dashboardId, 
+        p_section_name: name 
+      });
+
+      if (error) {
+        console.error("Error adding section:", error);
+        alert("Failed to save section. Please try again.");
+        // Revert UI if failed
+        setSections(sections);
+      }
+  };
+  
   const renameSection = async (oldName: string, type: 'custom' | 'schedule' | 'missions') => {
-      const newName = prompt("Rename Section:", oldName); if (!newName || newName === oldName) return;
-      let newSettings = { ...config.settings };
-      if (type === 'custom') { const newSections = sections.map(s => s === oldName ? newName : s); setSections(newSections); newSettings.sections = newSections; manualCards.filter(c => c.settings?.category === oldName).forEach(c => updateCardCategory(c, newName)); genericWidgets.filter(c => c.settings?.category === oldName).forEach(c => updateCardCategory(c, newName)); } 
-      else if (type === 'schedule') { setScheduleTitle(newName); newSettings.scheduleTitle = newName; }
-      else if (type === 'missions') { setMissionsTitle(newName); newSettings.missionsTitle = newName; }
-      await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId);
+      const newName = prompt("Rename Section:", oldName);
+      if (!newName || newName === oldName) return;
+      
+      // OPTION A: Custom Sections (Uses SQL to move cards)
+      if (type === 'custom') {
+          // 1. Optimistic UI Update
+          const newSections = sections.map(s => s === oldName ? newName : s);
+          setSections(newSections);
+          
+          // Update local cards visually so they don't disappear
+          setManualCards(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c));
+          setGenericWidgets(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c));
+
+          // 2. Call SQL Function
+          const { error } = await supabase.rpc('rename_dashboard_section', { 
+            p_dashboard_id: dashboardId, 
+            p_old_name: oldName, 
+            p_new_name: newName 
+          });
+
+          if (error) {
+             console.error("Renaming failed:", error);
+             alert("Database error: Could not rename section.");
+             window.location.reload(); // Safety reload
+          }
+      } 
+      // OPTION B: Hardcoded Sections (Just updates the label title)
+      else if (type === 'schedule') {
+          setScheduleTitle(newName);
+          await supabase.from('dashboards').update({ settings: { ...config.settings, scheduleTitle: newName } }).eq('id', dashboardId);
+      }
+      else if (type === 'missions') {
+          setMissionsTitle(newName);
+          await supabase.from('dashboards').update({ settings: { ...config.settings, missionsTitle: newName } }).eq('id', dashboardId);
+      }
   };
 
   const doesCardMatch = (card: any) => { if(!searchQuery) return true; return JSON.stringify(card).toLowerCase().includes(searchQuery.toLowerCase()); };
