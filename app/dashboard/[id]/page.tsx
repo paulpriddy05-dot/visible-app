@@ -274,26 +274,65 @@ export default function DynamicDashboard() {
       else { setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c)); await supabase.from('Weeks').update({ settings: newSettings }).eq('id', card.id); }
   };
 
-  // 🟢 SQL-POWERED SECTION MANAGEMENT
+  // 🟢 1. ADD SECTION (Updated to save the WHOLE list)
   const addSection = async () => {
       const name = prompt("New Section Name:");
       if (!name) return;
       
-      // 1. Optimistic UI Update (Show it immediately)
+      // Update Local State first (Optimistic)
       const newSections = [...sections, name];
       setSections(newSections);
       
-      // 2. Call SQL Function
-      const { error } = await supabase.rpc('add_dashboard_section', { 
+      // Save the ENTIRE list to the database
+      const { error } = await supabase.rpc('update_dashboard_sections', { 
         p_dashboard_id: dashboardId, 
-        p_section_name: name 
+        p_sections: newSections 
       });
 
       if (error) {
-        console.error("Error adding section:", error);
-        alert("Failed to save section. Please try again.");
-        // Revert UI if failed
-        setSections(sections);
+        console.error("Save failed:", error);
+        alert("Could not save section. Check console for details.");
+      }
+  };
+  
+  // 🟢 2. RENAME SECTION (Updated to save list + move cards)
+  const renameSection = async (oldName: string, type: 'custom' | 'schedule' | 'missions') => {
+      const newName = prompt("Rename Section:", oldName);
+      if (!newName || newName === oldName) return;
+      
+      let newSettings = { ...config.settings };
+
+      if (type === 'custom') {
+          // A. Update the list in Local State
+          const newSections = sections.map(s => s === oldName ? newName : s);
+          setSections(newSections);
+          
+          // B. Update the list in Database
+          await supabase.rpc('update_dashboard_sections', { 
+            p_dashboard_id: dashboardId, 
+            p_sections: newSections 
+          });
+          
+          // C. Migrate the cards in Local State (so they don't disappear instantly)
+          setManualCards(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c));
+          setGenericWidgets(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c));
+
+          // D. Migrate the cards in Database (using the helper SQL)
+          await supabase.rpc('rename_dashboard_section_logic', { 
+            p_dashboard_id: dashboardId, 
+            p_old_name: oldName, 
+            p_new_name: newName 
+          });
+      } 
+      else if (type === 'schedule') {
+          setScheduleTitle(newName);
+          newSettings.scheduleTitle = newName;
+          await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId);
+      }
+      else if (type === 'missions') {
+          setMissionsTitle(newName);
+          newSettings.missionsTitle = newName;
+          await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId);
       }
   };
   
