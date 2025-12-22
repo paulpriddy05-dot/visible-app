@@ -436,7 +436,8 @@ export default function DynamicDashboard() {
         
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             
-            {/* 1. WEEKLY SCHEDULE */}
+           {/* 1. WEEKLY SCHEDULE (Only show if data exists) */}
+            {scheduleCards.length > 0 && (
             <div className="space-y-4">
                 <div className="flex items-center justify-between group">
                     <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(scheduleTitle, 'schedule')}>
@@ -452,6 +453,7 @@ export default function DynamicDashboard() {
                     </div>
                 </SortableContext>
             </div>
+            )}
 
             {/* 2. MISSIONS */}
             {missionSectionItems.length > 0 && (
