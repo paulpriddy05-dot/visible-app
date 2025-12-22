@@ -229,9 +229,54 @@ export default function DynamicDashboard() {
   const addNewCard = async (sectionName: string) => { 
       const newOrder = manualCards.length; 
       const defaultResources = [{ title: "General Files", items: [] }];
-      const settings = { category: sectionName };
-      const { data } = await supabase.from('Weeks').insert([{ title: "New Resource Hub", date_label: "", resources: defaultResources, color: "green", sort_order: newOrder, dashboard_id: dashboardId, settings: settings }]).select(); 
-      if (data) { const newCard = { ...data[0], source: 'manual' }; setManualCards([...manualCards, newCard]); setActiveCard(newCard); setIsEditing(true); } 
+      
+      // Default to "Planning" if sectionName is missing
+      const safeCategory = sectionName || (sections.length > 0 ? sections[0] : "Planning");
+      
+      const payload: any = { 
+          title: "New Resource Hub", 
+          date_label: "", 
+          resources: defaultResources, 
+          color: "green", 
+          sort_order: newOrder, 
+          dashboard_id: dashboardId,
+          settings: { category: safeCategory, icon: "fa-folder-open" } 
+      };
+
+      // 1. Try to insert
+      const { data, error } = await supabase.from('Weeks').insert([payload]).select(); 
+      
+      // 2. Handle Error
+      if (error) {
+          console.error("Supabase Error:", error);
+          
+          // ⚠️ FALLBACK: If the error is about the 'settings' column missing, try again without it
+          if (error.message.includes('column "settings" of relation "Weeks" does not exist')) {
+              alert("Database Update Needed: Your 'Weeks' table is missing the 'settings' column. I will try to add a basic card, but Icons/Categories won't save until you update the database.");
+              
+              // Retry without settings
+              delete payload.settings;
+              const retry = await supabase.from('Weeks').insert([payload]).select();
+              if (retry.data) {
+                  const newCard = { ...retry.data[0], source: 'manual' }; 
+                  setManualCards([...manualCards, newCard]); 
+                  setActiveCard(newCard); 
+                  setIsEditing(true);
+                  return;
+              }
+          }
+          
+          alert("Error adding card: " + error.message);
+          return;
+      }
+
+      // 3. Success
+      if (data) { 
+          const newCard = { ...data[0], source: 'manual' }; 
+          setManualCards([...manualCards, newCard]); 
+          setActiveCard(newCard); 
+          setIsEditing(true); 
+      } 
   };
 
   const updateIcon = async (newIcon: string) => {
