@@ -546,35 +546,45 @@ export default function DynamicDashboard() {
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
+                 {/* 🟢 FIXED: Toggle between Files and Visualization */}
                  {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                     <button 
                       onClick={() => {
-                          if (attachedSheetUrl && !activeCard.data) {
-                              loadSheetData(attachedSheetUrl, activeCard);
+                          // 1. If currently visualizing, turn it OFF (go back to files)
+                          if (activeCard.settings?.viewMode) {
+                              const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: null } };
+                              setActiveCard(updated);
+                          } 
+                          // 2. If NOT visualizing, turn it ON (and load data if needed)
+                          else {
+                              if (attachedSheetUrl && !activeCard.data) {
+                                  loadSheetData(attachedSheetUrl, activeCard);
+                              }
+                              // Default to 'card' view if turning on for first time
+                              const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } };
+                              setActiveCard(updated);
                           }
-                          setIsMapping(true);
                       }} 
                       className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode 
-                        ? "bg-white text-slate-700 border-white/50 hover:bg-slate-100" 
-                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse"}`}
+                        ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200" // Grey "Back" button style
+                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse" // Purple "Action" button style
+                      }`}
                     >
-                      <i className={`fas ${activeCard.settings?.viewMode ? 'fa-sliders-h' : 'fa-magic'}`}></i> 
-                      {activeCard.settings?.viewMode ? "Customize View" : "Visualize Data"}
+                      <i className={`fas ${activeCard.settings?.viewMode ? 'fa-folder-open' : 'fa-magic'}`}></i> 
+                      {activeCard.settings?.viewMode ? "Back to Files" : "Visualize Data"}
                     </button>
                  )}
-                 {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
-                    <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
+                 
+                 {/* 🟢 NEW: Configure Button (Only visible when visualizing) */}
+                 {activeCard.settings?.viewMode && (
+                     <button 
+                        onClick={() => setIsMapping(true)}
+                        className="px-3 py-1.5 rounded-lg text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
+                        title="Configure View"
+                     >
+                        <i className="fas fa-sliders-h"></i>
+                     </button>
                  )}
-                 {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
-                 {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && (
-                  <button 
-                    onClick={() => deleteCard(activeCard)} 
-                    className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
-                    title="Delete Card"
-                  >
-                    <i className="fas fa-trash"></i>
-                  </button>
-                )}
                  {showDocPreview && <button onClick={() => setShowDocPreview(null)} className="bg-white/20 px-3 py-1 rounded text-sm font-medium"><i className="fas fa-arrow-left mr-2"></i> Back</button>}
                  <button onClick={() => setActiveModal(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><i className="fas fa-times text-xl"></i></button>
               </div>
@@ -582,7 +592,8 @@ export default function DynamicDashboard() {
             
             {/* Body */}
             <div className="p-0 overflow-y-auto custom-scroll flex flex-col h-full bg-slate-50">
-              {(activeCard.type === 'generic-sheet' || activeCard.data) ? (
+              {/* 🟢 FIXED: Only show data if viewMode is active OR it's a generic widget */}
+              {((activeCard.type === 'generic-sheet' || activeCard.data) && activeCard.settings?.viewMode) ? (
                   isMapping ? (
                       <div className="flex h-full">
                         {/* LEFT SIDEBAR: CONTROLS */}
