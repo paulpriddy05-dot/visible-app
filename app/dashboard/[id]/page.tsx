@@ -101,6 +101,7 @@ export default function DynamicDashboard() {
   const [manualCards, setManualCards] = useState<any[]>([]);     
   const [genericWidgets, setGenericWidgets] = useState<any[]>([]);
   const [sections, setSections] = useState<string[]>(["Planning & Resources"]); 
+  
   const [scheduleTitle, setScheduleTitle] = useState("Weekly Schedule");
   const [missionsTitle, setMissionsTitle] = useState("Missions");
 
@@ -211,24 +212,45 @@ export default function DynamicDashboard() {
       setIsMapping(false);
   };
 
+  // 🔴 FIXED DELETE FUNCTION (No reload, just state update)
   const deleteCard = async (card: any) => { 
       if (!card || !card.id) return alert("Error: Card missing");
-      const isManual = card.source === 'manual';
-      const isWidget = card.type === 'generic-sheet';
-      if (!isManual && !isWidget) return alert("This system card cannot be deleted.");
       if(!confirm("Delete this card permanently?")) return; 
-      let error;
-      if (isManual) { const res = await supabase.from('Weeks').delete().eq('id', card.id); error = res.error; } 
-      else if (isWidget) { const res = await supabase.from('widgets').delete().eq('id', card.id); error = res.error; }
-      if (error) { alert("Error: " + error.message); } else { window.location.reload(); }
+
+      // Optimistic UI Update
+      if (card.source === 'manual') {
+          setManualCards(prev => prev.filter(c => c.id !== card.id));
+          await supabase.from('Weeks').delete().eq('id', card.id);
+      } else if (card.type === 'generic-sheet') {
+          setGenericWidgets(prev => prev.filter(c => c.id !== card.id));
+          await supabase.from('widgets').delete().eq('id', card.id);
+      }
+      
+      setActiveCard(null);
   };
   
+  // 🔴 FIXED ADD CARD FUNCTION (Auto-assigns category)
   const addNewCard = async (sectionName: string) => { 
       const newOrder = manualCards.length; 
       const defaultResources = [{ title: "General Files", items: [] }];
       const settings = { category: sectionName };
-      const { data } = await supabase.from('Weeks').insert([{ title: "New Resource Hub", date_label: "", resources: defaultResources, color: "green", sort_order: newOrder, dashboard_id: dashboardId, settings: settings }]).select(); 
-      if (data) { const newCard = { ...data[0], source: 'manual' }; setManualCards([...manualCards, newCard]); setActiveCard(newCard); setIsEditing(true); } 
+      
+      const { data } = await supabase.from('Weeks').insert([{ 
+          title: "New Resource Hub", 
+          date_label: "", 
+          resources: defaultResources, 
+          color: "green", 
+          sort_order: newOrder, 
+          dashboard_id: dashboardId, 
+          settings: settings // 🟢 IMPORTANT: Saves category immediately
+      }]).select(); 
+      
+      if (data) { 
+          const newCard = { ...data[0], source: 'manual' }; 
+          setManualCards([...manualCards, newCard]); 
+          setActiveCard(newCard); 
+          setIsEditing(true); 
+      } 
   };
 
   const updateIcon = async (newIcon: string) => {
@@ -274,66 +296,39 @@ export default function DynamicDashboard() {
       else { setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c)); await supabase.from('Weeks').update({ settings: newSettings }).eq('id', card.id); }
   };
 
-  // 🟢 1. ADD SECTION (Updated to save the WHOLE list)
-  const addSection = async () => {
-      const name = prompt("New Section Name:");
-      if (!name) return;
+  // 🔴 FIXED ADD SECTION (No duplicates)
+  const addSection = async () => { 
+      const name = prompt("New Section Name:"); 
+      if (!name) return; 
+      if (sections.includes(name)) return alert("Section already exists"); // Prevent duplicate
       
-      // Update Local State first (Optimistic)
-      const newSections = [...sections, name];
-      setSections(newSections);
-      
-      // Save the ENTIRE list to the database
-      const { error } = await supabase.rpc('update_dashboard_sections', { 
-        p_dashboard_id: dashboardId, 
-        p_sections: newSections 
-      });
-
-      if (error) {
-        console.error("Save failed:", error);
-        alert("Could not save section. Check console for details.");
-      }
+      const newSections = [...sections, name]; 
+      setSections(newSections); 
+      // Save entire list via RPC to ensure sync
+      await supabase.rpc('update_dashboard_sections', { p_dashboard_id: dashboardId, p_sections: newSections });
   };
   
-  // 🟢 2. RENAME SECTION (Updated to save list + move cards)
+  // 🔴 FIXED RENAME SECTION (Syncs list & cards)
   const renameSection = async (oldName: string, type: 'custom' | 'schedule' | 'missions') => {
-      const newName = prompt("Rename Section:", oldName);
+      const newName = prompt("Rename Section:", oldName); 
       if (!newName || newName === oldName) return;
       
       let newSettings = { ...config.settings };
-
-      if (type === 'custom') {
-          // A. Update the list in Local State
-          const newSections = sections.map(s => s === oldName ? newName : s);
-          setSections(newSections);
+      if (type === 'custom') { 
+          // 1. Update UI List
+          const newSections = sections.map(s => s === oldName ? newName : s); 
+          setSections(newSections); 
           
-          // B. Update the list in Database
-          await supabase.rpc('update_dashboard_sections', { 
-            p_dashboard_id: dashboardId, 
-            p_sections: newSections 
-          });
-          
-          // C. Migrate the cards in Local State (so they don't disappear instantly)
-          setManualCards(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c));
+          // 2. Update Local Cards
+          setManualCards(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c)); 
           setGenericWidgets(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c));
-
-          // D. Migrate the cards in Database (using the helper SQL)
-          await supabase.rpc('rename_dashboard_section_logic', { 
-            p_dashboard_id: dashboardId, 
-            p_old_name: oldName, 
-            p_new_name: newName 
-          });
+          
+          // 3. Save via RPC
+          await supabase.rpc('update_dashboard_sections', { p_dashboard_id: dashboardId, p_sections: newSections });
+          await supabase.rpc('rename_dashboard_section_logic', { p_dashboard_id: dashboardId, p_old_name: oldName, p_new_name: newName });
       } 
-      else if (type === 'schedule') {
-          setScheduleTitle(newName);
-          newSettings.scheduleTitle = newName;
-          await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId);
-      }
-      else if (type === 'missions') {
-          setMissionsTitle(newName);
-          newSettings.missionsTitle = newName;
-          await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId);
-      }
+      else if (type === 'schedule') { setScheduleTitle(newName); newSettings.scheduleTitle = newName; await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId); }
+      else if (type === 'missions') { setMissionsTitle(newName); newSettings.missionsTitle = newName; await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId); }
   };
 
   const doesCardMatch = (card: any) => { if(!searchQuery) return true; return JSON.stringify(card).toLowerCase().includes(searchQuery.toLowerCase()); };
@@ -475,7 +470,6 @@ export default function DynamicDashboard() {
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
                  <h3 ref={titleRef} contentEditable={isEditing} suppressContentEditableWarning={true} className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}>{activeCard.title}</h3>
-                 
                  {isEditing && isCardEditable(activeCard) && (
                    <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-left-2 duration-200">
                      <div className="flex gap-2">
