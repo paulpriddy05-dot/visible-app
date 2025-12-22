@@ -285,9 +285,7 @@ export default function DynamicDashboard() {
     } 
   };
 
-  // 🟢 FIXED: Securely Move Cards via SQL
   const updateCardCategory = async (card: any, newCategory: string) => {
-      // 1. Optimistic UI Update (Instant feedback)
       const newSettings = { ...card.settings, category: newCategory };
       const updatedCard = { ...card, settings: newSettings };
       
@@ -297,21 +295,14 @@ export default function DynamicDashboard() {
           setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
       }
 
-      // 2. Determine Type ('manual' or 'widget')
-      // Note: We use 'manual' for "Weeks" table items, 'widget' for "widgets" table items
       const type = card.type === 'generic-sheet' ? 'widget' : 'manual';
-
-      // 3. Send to Database via Secure Function
       const { error } = await supabase.rpc('move_dashboard_card', {
           p_card_id: card.id,
           p_new_category: newCategory,
           p_card_type: type
       });
 
-      if (error) {
-          console.error("Move failed:", error);
-          alert("Could not save move. Check console.");
-      }
+      if (error) { console.error("Move failed:", error); alert("Could not save move. Check console."); }
   };
 
   const addSection = async () => { 
@@ -324,21 +315,16 @@ export default function DynamicDashboard() {
       await supabase.rpc('update_dashboard_sections', { p_dashboard_id: dashboardId, p_sections: newSections });
   };
   
-  // 🟢 DELETE SECTION (New)
   const deleteSection = async (sectionName: string) => {
       if(!confirm(`Delete section "${sectionName}"? Cards in this section will be moved to the top.`)) return;
       
       const newSections = sections.filter(s => s !== sectionName);
       setSections(newSections);
       
-      // Save List
       await supabase.rpc('update_dashboard_sections', { p_dashboard_id: dashboardId, p_sections: newSections });
-      
-      // Move cards to safe zone (First available section or Planning)
       const safeZone = newSections[0] || "Planning & Resources";
       await supabase.rpc('delete_dashboard_section_logic', { p_dashboard_id: dashboardId, p_section_to_delete: sectionName, p_safe_section: safeZone });
       
-      // Reload to see moved cards
       window.location.reload();
   };
 
@@ -503,98 +489,348 @@ export default function DynamicDashboard() {
       {activeCard && (
         <div onClick={() => setActiveModal(null)} className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-6 bg-slate-900/70 backdrop-blur-sm">
           <div onClick={(e) => e.stopPropagation()} className={`bg-white w-full ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "max-w-6xl h-[85vh]" : "max-w-2xl"} rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300`}>
+            {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
-                 <h3 ref={titleRef} contentEditable={isEditing} suppressContentEditableWarning={true} className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}>{activeCard.title}</h3>
-                 
+                 {/* 🆕 EDITABLE TITLE */}
+                 <h3 
+                 ref={titleRef}
+                 contentEditable={isEditing}
+                 suppressContentEditableWarning={true}
+                 className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}
+                 >
+                    {activeCard.title}
+                 </h3>
+                 {/* ✅ COLOR PICKER GOES HERE */}
                  {isEditing && isCardEditable(activeCard) && (
-                   <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-left-2 duration-200">
-                     <div className="flex gap-2">
-                        {Object.keys(COLOR_MAP).map((c) => (
-                          <button key={c} onClick={(e) => { e.stopPropagation(); updateColor(c); }} className={`w-6 h-6 rounded-full border-2 border-white/40 hover:scale-110 transition-transform shadow-sm ${COLOR_MAP[c]} ${activeCard.color === c ? 'ring-2 ring-white scale-110' : ''}`} title={`Change to ${c}`} />
-                        ))}
-                     </div>
-                     <div className="flex gap-2 flex-wrap">
-                        {ICON_OPTIONS.map((icon) => (
-                            <button key={icon} onClick={() => updateIcon(icon)} className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all ${activeCard.settings?.icon === icon ? 'bg-white text-slate-900 border-white' : 'bg-white/20 text-white border-transparent hover:bg-white/40'}`}>
-                                <i className={`fas ${icon}`}></i>
-                            </button>
-                        ))}
-                     </div>
+                   <div className="flex gap-2 mt-3 animate-in fade-in slide-in-from-left-2 duration-200">
+                     {Object.keys(COLOR_MAP).map((c) => (
+                       <button
+                         key={c}
+                         onClick={(e) => { e.stopPropagation(); updateColor(c); }}
+                         className={`w-6 h-6 rounded-full border-2 border-white/40 hover:scale-110 transition-transform shadow-sm ${COLOR_MAP[c]} ${activeCard.color === c ? 'ring-2 ring-white scale-110' : ''}`}
+                         title={`Change to ${c}`}
+                       />
+                     ))}
                    </div>
                  )}
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
+                 {/* 🟢 VISUAL MAPPER BUTTON */}
                  {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
-                    <button onClick={() => { if (attachedSheetUrl && !activeCard.data) { loadSheetData(attachedSheetUrl, activeCard); } setIsMapping(true); }} className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode ? "bg-white text-slate-700 border-white/50 hover:bg-slate-100" : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse"}`}>
-                      <i className={`fas ${activeCard.settings?.viewMode ? 'fa-sliders-h' : 'fa-magic'}`}></i> {activeCard.settings?.viewMode ? "Customize View" : "Visualize Data"}
+                    <button 
+                      onClick={() => {
+                          if (attachedSheetUrl && !activeCard.data) {
+                              loadSheetData(attachedSheetUrl, activeCard);
+                          }
+                          setIsMapping(true);
+                      }} 
+                      className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode 
+                        ? "bg-white text-slate-700 border-white/50 hover:bg-slate-100" 
+                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse"}`}
+                    >
+                      <i className={`fas ${activeCard.settings?.viewMode ? 'fa-sliders-h' : 'fa-magic'}`}></i> 
+                      {activeCard.settings?.viewMode ? "Customize View" : "Visualize Data"}
                     </button>
                  )}
                  {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
                     <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
                  )}
                  {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
-                 {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && (<button onClick={() => deleteCard(activeCard)} className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white" title="Delete Card"><i className="fas fa-trash"></i></button>)}
+                 {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && (
+                  <button 
+                    onClick={() => deleteCard(activeCard)} 
+                    className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
+                    title="Delete Card"
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
+                )}
                  {showDocPreview && <button onClick={() => setShowDocPreview(null)} className="bg-white/20 px-3 py-1 rounded text-sm font-medium"><i className="fas fa-arrow-left mr-2"></i> Back</button>}
                  <button onClick={() => setActiveModal(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><i className="fas fa-times text-xl"></i></button>
               </div>
             </div>
             
+            {/* Body */}
             <div className="p-0 overflow-y-auto custom-scroll flex flex-col h-full bg-slate-50">
+              {/* GENERIC SHEET OR MANUAL CARD WITH DATA */}
               {(activeCard.type === 'generic-sheet' || activeCard.data) ? (
                   isMapping ? (
+                      // 1. SPLIT-SCREEN VISUAL MAPPER
                       <div className="flex h-full">
+                        {/* LEFT SIDEBAR: CONTROLS */}
                         <div className="w-1/3 bg-white border-r border-slate-200 flex flex-col">
-                          <div className="p-6 border-b border-slate-100"><h2 className="text-lg font-bold text-slate-800 flex items-center gap-2"><i className="fas fa-magic text-purple-500"></i> Configure View</h2><p className="text-slate-500 text-xs mt-1">Map columns to the card. (Auto-CSV is enabled)</p></div>
+                          <div className="p-6 border-b border-slate-100">
+                            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                              <i className="fas fa-magic text-purple-500"></i> Configure View
+                            </h2>
+                            <p className="text-slate-500 text-xs mt-1">
+                              Map columns to the card. (Auto-CSV is enabled)
+                            </p>
+                          </div>
+                          
                           <div className="p-6 space-y-6 overflow-y-auto flex-1">
-                            <div><label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Display Style</label><div className="grid grid-cols-2 gap-2"><button onClick={() => { const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'table' } }; setActiveCard(updated); }} className={`p-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${activeCard.settings?.viewMode === 'table' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}><i className="fas fa-table text-lg"></i> Table List</button><button onClick={() => { const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } }; setActiveCard(updated); }} className={`p-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${activeCard.settings?.viewMode === 'card' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}><i className="fas fa-th-large text-lg"></i> Card Grid</button></div></div>
+                            {/* View Mode Selector */}
+                            <div>
+                              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Display Style</label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <button 
+                                  onClick={() => {
+                                    const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'table' } };
+                                    setActiveCard(updated); 
+                                  }}
+                                  className={`p-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${activeCard.settings?.viewMode === 'table' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                                >
+                                  <i className="fas fa-table text-lg"></i> Table List
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } };
+                                    setActiveCard(updated);
+                                  }}
+                                  className={`p-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${activeCard.settings?.viewMode === 'card' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                                >
+                                  <i className="fas fa-th-large text-lg"></i> Card Grid
+                                </button>
+                              </div>
+                            </div>
+
                             <div className="h-px bg-slate-100 w-full my-2"></div>
+
+                            {/* Column Mappers */}
                             <div className="space-y-4">
-                              <div><label className="block text-xs font-bold text-slate-700 mb-1">Title <span className="text-red-400">*</span></label><select id="titleCol" value={activeCard.settings?.titleCol || ''} onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, titleCol: e.target.value } })} className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"><option value="">-- Select Column --</option>{activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}</select></div>
-                              <div><label className="block text-xs font-bold text-slate-700 mb-1">Subtitle / Date</label><select id="subtitleCol" value={activeCard.settings?.subtitleCol || ''} onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, subtitleCol: e.target.value } })} className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"><option value="">-- None --</option>{activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}</select></div>
-                              <div><label className="block text-xs font-bold text-slate-700 mb-1">Status Tag</label><select id="tagCol" value={activeCard.settings?.tagCol || ''} onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, tagCol: e.target.value } })} className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"><option value="">-- None --</option>{activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}</select></div>
-                              <div><label className="block text-xs font-bold text-slate-700 mb-2">Extra Details</label><div className="space-y-2">{activeCard.settings?.extraFields?.map((field: string, idx: number) => (<div key={idx} className="flex gap-2"><select value={field} onChange={(e) => { const newFields = [...(activeCard.settings.extraFields || [])]; newFields[idx] = e.target.value; setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}}); }} className="flex-1 p-2 border border-slate-300 rounded-lg text-sm">{activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}</select><button onClick={() => { const newFields = activeCard.settings.extraFields.filter((_:any, i:number) => i !== idx); setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}}); }} className="text-red-500 hover:text-red-700"><i className="fas fa-trash"></i></button></div>))}<button onClick={() => { const current = activeCard.settings.extraFields || []; const defaultCol = activeCard.columns?.[0] || ""; setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: [...current, defaultCol]}}); }} className="text-xs font-bold text-blue-600 hover:underline">+ Add Field</button></div></div>
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Title <span className="text-red-400">*</span></label>
+                                <select 
+                                  id="titleCol" 
+                                  value={activeCard.settings?.titleCol || ''} 
+                                  onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, titleCol: e.target.value } })}
+                                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                                  <option value="">-- Select Column --</option>
+                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Subtitle / Date</label>
+                                <select 
+                                  id="subtitleCol" 
+                                  value={activeCard.settings?.subtitleCol || ''}
+                                  onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, subtitleCol: e.target.value } })}
+                                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                                  <option value="">-- None --</option>
+                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Status Tag</label>
+                                <select 
+                                  id="tagCol" 
+                                  value={activeCard.settings?.tagCol || ''}
+                                  onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, tagCol: e.target.value } })}
+                                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                >
+                                  <option value="">-- None --</option>
+                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                              </div>
+
+                              {/* REQUEST #2: EXTRA FIELDS */}
+                              <div>
+                                 <label className="block text-xs font-bold text-slate-700 mb-2">Extra Details</label>
+                                 <div className="space-y-2">
+                                     {activeCard.settings?.extraFields?.map((field: string, idx: number) => (
+                                         <div key={idx} className="flex gap-2">
+                                             <select 
+                                                 value={field}
+                                                 onChange={(e) => {
+                                                     const newFields = [...(activeCard.settings.extraFields || [])];
+                                                     newFields[idx] = e.target.value;
+                                                     setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}});
+                                                 }}
+                                                 className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
+                                             >
+                                                {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                             </select>
+                                             <button onClick={() => {
+                                                  const newFields = activeCard.settings.extraFields.filter((_:any, i:number) => i !== idx);
+                                                  setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}});
+                                             }} className="text-red-500 hover:text-red-700"><i className="fas fa-trash"></i></button>
+                                         </div>
+                                     ))}
+                                     <button onClick={() => {
+                                         const current = activeCard.settings.extraFields || [];
+                                         const defaultCol = activeCard.columns?.[0] || "";
+                                         setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: [...current, defaultCol]}});
+                                     }} className="text-xs font-bold text-blue-600 hover:underline">+ Add Field</button>
+                                 </div>
+                              </div>
+
                             </div>
                           </div>
-                          <div className="p-6 border-t border-slate-200 bg-slate-50"><button onClick={() => saveMapping(activeCard.settings)} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition-all shadow-sm mb-3 flex items-center justify-center gap-2"><i className="fas fa-check"></i> Save Configuration</button><button onClick={() => setIsMapping(false)} className="w-full text-slate-500 text-sm font-medium hover:text-slate-800">Cancel</button></div>
+
+                          {/* Action Footer */}
+                          <div className="p-6 border-t border-slate-200 bg-slate-50">
+                            <button 
+                              onClick={() => saveMapping(activeCard.settings)} 
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold transition-all shadow-sm mb-3 flex items-center justify-center gap-2"
+                            >
+                              <i className="fas fa-check"></i> Save Configuration
+                            </button>
+                            <button onClick={() => setIsMapping(false)} className="w-full text-slate-500 text-sm font-medium hover:text-slate-800">Cancel</button>
+                          </div>
                         </div>
+
+                        {/* RIGHT SIDE: LIVE PREVIEW */}
                         <div className="flex-1 bg-slate-100/50 flex flex-col">
-                          <div className="h-12 border-b border-slate-200 bg-white flex items-center justify-center text-xs font-bold text-slate-400 uppercase tracking-widest">Live Preview</div>
+                          <div className="h-12 border-b border-slate-200 bg-white flex items-center justify-center text-xs font-bold text-slate-400 uppercase tracking-widest">
+                            Live Preview
+                          </div>
                           <div className="flex-1 p-10 flex items-center justify-center overflow-y-auto">
+                            
                             <div className="w-full max-w-md pointer-events-none select-none">
                               {activeCard.settings?.viewMode === 'card' ? (
+                                // PREVIEW: CARD MODE
                                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xl scale-110 origin-center">
-                                  <div className="flex justify-between items-start mb-4"><div><div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{activeCard.settings?.titleCol || "Select Title"}</div><h4 className="font-bold text-xl text-slate-800 line-clamp-2">{activeCard.data[0]?.[activeCard.settings?.titleCol] || "Sample Value"}</h4></div>{activeCard.settings?.tagCol && activeCard.data[0]?.[activeCard.settings?.tagCol] && (<span className="shrink-0 ml-2 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">{activeCard.data[0][activeCard.settings.tagCol]}</span>)}</div>
-                                  <div className="space-y-3">{activeCard.settings?.subtitleCol && (<div><div className="text-[10px] font-bold text-slate-400 uppercase">{activeCard.settings.subtitleCol}</div><div className="text-sm text-slate-600 font-medium">{activeCard.data[0]?.[activeCard.settings?.subtitleCol] || "Sample Subtitle"}</div></div>)}{activeCard.settings?.extraFields?.map((f: string) => (<div key={f}><div className="text-[10px] font-bold text-slate-400 uppercase">{f}</div><div className="text-sm text-slate-600 font-medium">{activeCard.data[0]?.[f] || "-"}</div></div>))}</div>
+                                  <div className="flex justify-between items-start mb-4">
+                                      <div>
+                                        {/* REQUEST #1: LABEL HEADER */}
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{activeCard.settings?.titleCol || "Select Title"}</div>
+                                        <h4 className="font-bold text-xl text-slate-800 line-clamp-2">
+                                            {activeCard.data[0]?.[activeCard.settings?.titleCol] || "Sample Value"}
+                                        </h4>
+                                      </div>
+                                      {activeCard.settings?.tagCol && activeCard.data[0]?.[activeCard.settings?.tagCol] && (
+                                        <span className="shrink-0 ml-2 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
+                                          {activeCard.data[0][activeCard.settings.tagCol]}
+                                        </span>
+                                      )}
+                                  </div>
+                                  
+                                  <div className="space-y-3">
+                                      {activeCard.settings?.subtitleCol && (
+                                        <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase">{activeCard.settings.subtitleCol}</div>
+                                            <div className="text-sm text-slate-600 font-medium">
+                                                {activeCard.data[0]?.[activeCard.settings?.subtitleCol] || "Sample Subtitle"}
+                                            </div>
+                                        </div>
+                                      )}
+                                      
+                                      {/* RENDER EXTRA FIELDS IN PREVIEW */}
+                                      {activeCard.settings?.extraFields?.map((f: string) => (
+                                          <div key={f}>
+                                              <div className="text-[10px] font-bold text-slate-400 uppercase">{f}</div>
+                                              <div className="text-sm text-slate-600 font-medium">{activeCard.data[0]?.[f] || "-"}</div>
+                                          </div>
+                                      ))}
+                                  </div>
                                 </div>
                               ) : (
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden"><div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex gap-4"><div className="h-2 bg-slate-200 rounded w-16"></div><div className="h-2 bg-slate-200 rounded w-16"></div><div className="h-2 bg-slate-200 rounded w-16"></div></div><div className="p-4 space-y-4">{[1,2,3].map(i => (<div key={i} className="flex gap-4 items-center"><div className="h-3 bg-slate-800 rounded w-1/3 opacity-80"></div><div className="h-3 bg-slate-200 rounded w-1/4"></div><div className="h-3 bg-emerald-100 rounded w-1/5"></div></div>))}</div></div>
+                                // PREVIEW: TABLE MODE
+                                <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden">
+                                   <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex gap-4">
+                                      <div className="h-2 bg-slate-200 rounded w-16"></div>
+                                      <div className="h-2 bg-slate-200 rounded w-16"></div>
+                                      <div className="h-2 bg-slate-200 rounded w-16"></div>
+                                   </div>
+                                   <div className="p-4 space-y-4">
+                                      {[1,2,3].map(i => (
+                                        <div key={i} className="flex gap-4 items-center">
+                                           <div className="h-3 bg-slate-800 rounded w-1/3 opacity-80"></div>
+                                           <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+                                           <div className="h-3 bg-emerald-100 rounded w-1/5"></div>
+                                        </div>
+                                      ))}
+                                   </div>
+                                </div>
                               )}
-                              <div className="mt-8 text-center text-slate-400 text-xs">{activeCard.settings?.viewMode === 'card' ? "Card Grid Preview" : "Table List Preview"}</div>
+                              
+                              <div className="mt-8 text-center text-slate-400 text-xs">
+                                {activeCard.settings?.viewMode === 'card' 
+                                  ? "Card Grid Preview" 
+                                  : "Table List Preview"}
+                              </div>
                             </div>
+
                           </div>
                         </div>
                       </div>
                   ) : activeCard.settings?.viewMode === 'card' ? (
+                      // 2. CARD VIEW RENDERER (ACTUAL)
                       <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                            {activeCard.data.filter((row:any) => row[activeCard.settings.titleCol]).map((row:any, idx:number) => (
                                <div key={idx} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all">
-                                   <div className="flex justify-between items-start mb-4"><div><div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{activeCard.settings.titleCol}</div><h4 className="font-bold text-xl text-slate-800 line-clamp-2">{row[activeCard.settings.titleCol] || "Untitled"}</h4></div>{activeCard.settings.tagCol && row[activeCard.settings.tagCol] && (<span className="shrink-0 ml-2 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">{row[activeCard.settings.tagCol]}</span>)}</div>
-                                   <div className="space-y-3">{activeCard.settings.subtitleCol && (<div><div className="text-[10px] font-bold text-slate-400 uppercase">{activeCard.settings.subtitleCol}</div><div className="text-sm text-slate-600 font-medium">{row[activeCard.settings.subtitleCol]}</div></div>)}{activeCard.settings.extraFields?.map((f: string) => (<div key={f}><div className="text-[10px] font-bold text-slate-400 uppercase">{f}</div><div className="text-sm text-slate-600 font-medium">{renderCellContent(row[f])}</div></div>))}</div>
+                                   <div className="flex justify-between items-start mb-4">
+                                       <div>
+                                            <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{activeCard.settings.titleCol}</div>
+                                            <h4 className="font-bold text-xl text-slate-800 line-clamp-2">{row[activeCard.settings.titleCol] || "Untitled"}</h4>
+                                       </div>
+                                       {activeCard.settings.tagCol && row[activeCard.settings.tagCol] && (<span className="shrink-0 ml-2 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">{row[activeCard.settings.tagCol]}</span>)}
+                                   </div>
+                                   
+                                   <div className="space-y-3">
+                                       {activeCard.settings.subtitleCol && (
+                                           <div>
+                                               <div className="text-[10px] font-bold text-slate-400 uppercase">{activeCard.settings.subtitleCol}</div>
+                                               <div className="text-sm text-slate-600 font-medium">{row[activeCard.settings.subtitleCol]}</div>
+                                           </div>
+                                       )}
+                                       {/* RENDER EXTRA FIELDS */}
+                                       {activeCard.settings.extraFields?.map((f: string) => (
+                                          <div key={f}>
+                                              <div className="text-[10px] font-bold text-slate-400 uppercase">{f}</div>
+                                              <div className="text-sm text-slate-600 font-medium">{renderCellContent(row[f])}</div>
+                                          </div>
+                                      ))}
+                                   </div>
                                </div>
                            ))}
                       </div>
                   ) : (
+                      // 3. TABLE VIEW (Default) - Unchanged
                       <div className="flex flex-col h-full bg-slate-50">
                          <div className="px-8 py-4 border-b border-slate-200 bg-white flex justify-between items-center"><div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Data Source: Google Sheet</div><div className="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-mono">{activeCard.rowCount} Rows</div></div>
-                         <div className="flex-1 overflow-auto p-8 custom-scroll"><div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden"><table className="min-w-full divide-y divide-slate-200"><thead className="bg-slate-50 sticky top-0 z-10 shadow-sm"><tr>{activeCard.columns?.map((col:string, idx:number) => (<th key={idx} className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap bg-slate-50">{col}</th>))}</tr></thead><tbody className="bg-white divide-y divide-slate-200">{activeCard.data.map((row:any, rIdx:number) => (<tr key={rIdx} className="hover:bg-blue-50/50 transition-colors group">{activeCard.columns?.map((col:string, cIdx:number) => (<td key={cIdx} className="px-6 py-4 whitespace-nowrap text-sm">{renderCellContent(row[col])}</td>))}</tr>))}</tbody></table></div></div>
+                         <div className="flex-1 overflow-auto p-8 custom-scroll">
+                            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+                                <table className="min-w-full divide-y divide-slate-200">
+                                    <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm"><tr>{activeCard.columns?.map((col:string, idx:number) => (<th key={idx} className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap bg-slate-50">{col}</th>))}</tr></thead>
+                                    <tbody className="bg-white divide-y divide-slate-200">{activeCard.data.map((row:any, rIdx:number) => (<tr key={rIdx} className="hover:bg-blue-50/50 transition-colors group">{activeCard.columns?.map((col:string, cIdx:number) => (<td key={cIdx} className="px-6 py-4 whitespace-nowrap text-sm">{renderCellContent(row[col])}</td>))}</tr>))}</tbody>
+                                </table>
+                            </div>
+                         </div>
                       </div>
                   )
               ) : activeCard.id === "missions-status" ? (
+                  // ... (Missions Module - Unchanged)
                   <div className="p-0 bg-slate-50 min-h-full">
-                      <div className="bg-sky-50 p-8 border-b border-sky-100 flex flex-col md:flex-row justify-between items-center gap-6"><div><div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-1">Upcoming Departure</div><h2 className="text-3xl font-bold text-slate-800 mb-1">{activeCard.upcomingLoc} Team</h2><div className="flex items-center gap-2 text-slate-500"><i className="far fa-calendar-alt"></i> {activeCard.upcomingDate}</div></div><div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-sky-100 text-center min-w-[120px]"><div className="text-4xl font-bold text-sky-600">{activeCard.upcomingOpen}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Open Spots</div></div></div>
-                      <div className="p-8"><div className="flex items-center gap-2 mb-4"><i className="fas fa-ticket-alt text-slate-400"></i><h4 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Open Registrations</h4></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{activeCard.trips.map((trip: any, idx: number) => (<div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm"><div><div className="font-bold text-slate-800 text-lg">{trip.name}</div><div className="text-xs text-slate-400 mt-1">Registration Open</div></div><div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{trip.spots} Spots</div></div>))}</div></div>
+                      <div className="bg-sky-50 p-8 border-b border-sky-100 flex flex-col md:flex-row justify-between items-center gap-6">
+                          <div>
+                              <div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-1">Upcoming Departure</div>
+                              <h2 className="text-3xl font-bold text-slate-800 mb-1">{activeCard.upcomingLoc} Team</h2>
+                              <div className="flex items-center gap-2 text-slate-500"><i className="far fa-calendar-alt"></i> {activeCard.upcomingDate}</div>
+                          </div>
+                          <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-sky-100 text-center min-w-[120px]">
+                              <div className="text-4xl font-bold text-sky-600">{activeCard.upcomingOpen}</div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Open Spots</div>
+                          </div>
+                      </div>
+                      <div className="p-8">
+                          <div className="flex items-center gap-2 mb-4"><i className="fas fa-ticket-alt text-slate-400"></i><h4 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Open Registrations</h4></div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {activeCard.trips.map((trip: any, idx: number) => (
+                                  <div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
+                                      <div><div className="font-bold text-slate-800 text-lg">{trip.name}</div><div className="text-xs text-slate-400 mt-1">Registration Open</div></div>
+                                      <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{trip.spots} Spots</div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                      {/* 🟢 RESTORED: 2026 Statistics (Staff vs Non-Staff) */}
                       <div className="bg-white p-8 border-t border-slate-200">
                           <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-6">2026 Statistics</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
@@ -610,12 +846,14 @@ export default function DynamicDashboard() {
                       </div>
                   </div>
               ) : activeCard.source?.includes("sheet") ? (
+                // ... (Schedule Logic - Unchanged)
                 <div className="p-8 space-y-8">
                      {activeCard.scripture && <div><div className="flex items-center gap-2 mb-3"><i className="fas fa-book-open text-rose-500"></i><span className="text-xs font-bold text-slate-400 uppercase">Primary Text</span></div><div className="text-lg text-slate-800 whitespace-pre-wrap">{activeCard.scripture}</div></div>}
                      {activeCard.worship && <div className="border-t border-slate-200 pt-6"><div className="flex items-center gap-2 mb-3"><i className="fas fa-music text-purple-500"></i><span className="text-xs font-bold text-slate-400 uppercase">Worship</span></div><div className="text-slate-700 whitespace-pre-wrap pl-4 border-l-4 border-purple-200 py-1">{activeCard.worship}</div></div>}
                      {activeCard.response_song && <div className="mt-2 ml-4"><div className="bg-purple-50 text-purple-900 p-3 rounded-md text-sm italic border border-purple-100 shadow-sm">{activeCard.response_song}</div></div>}
                 </div>
               ) : (
+                /* MANUAL CARD VIEW */
                 !showDocPreview && (
                 <div className="p-0">
                     <div className="p-8">
