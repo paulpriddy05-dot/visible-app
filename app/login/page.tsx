@@ -52,12 +52,16 @@ function LoginContent() {
       } 
       else if (view === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${origin}/auth/update-password`,
+          // 🔴 WRONG (Skips login): 
+          // redirectTo: `${origin}/auth/update-password`,
+          
+          // 🟢 CORRECT (Logs in -> Redirects):
+          redirectTo: `${origin}/auth/callback?next=/update-password`, 
         });
         if (error) throw error;
         setMessage('Password reset link sent! Check your email.');
         setView('login'); 
-      } 
+      }
       else {
         // Login
         const { error } = await supabase.auth.signInWithPassword({ email, password });
