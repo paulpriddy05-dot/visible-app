@@ -22,7 +22,6 @@ const COLOR_MAP: Record<string, string> = {
 };
 
 // 🟢 HELPER: Convert Google Sheet URL to CSV Export URL
-// Request #3: Auto-convert standard sheet links
 const toCSVUrl = (url: string) => {
   if (!url) return "";
   if (url.includes("docs.google.com/spreadsheets")) {
@@ -99,36 +98,58 @@ export default function DynamicDashboard() {
     initDashboard();
   }, [dashboardId]);
 
-  // 🟢 FETCH GENERIC WIDGETS (AUTO-CSV SUPPORT)
+  // 🟢 HELPER: FETCH CSV DATA FOR ANY CARD
+  const loadSheetData = async (url: string, card: any) => {
+    try {
+        const csvUrl = toCSVUrl(url);
+        const response = await fetch(csvUrl);
+        const csvText = await response.text();
+        
+        Papa.parse(csvText, { 
+            header: true, 
+            skipEmptyLines: true, 
+            transformHeader: (h: string) => h.trim(), 
+            complete: (results: any) => {
+                // Update the active card with data so it can be visualized
+                const enrichedCard = {
+                    ...card,
+                    data: results.data,
+                    columns: results.meta.fields,
+                    rowCount: results.data.length,
+                    sheet_url: url, // Track which sheet we used
+                    settings: { ...card.settings, connectedSheet: url } // Save connection
+                };
+                setActiveCard(enrichedCard);
+                // Also update persistent manualCards state
+                setManualCards(prev => prev.map(c => c.id === card.id ? enrichedCard : c));
+            }
+        });
+    } catch (e) {
+        console.error("Failed to load sheet data", e);
+        alert("Could not load sheet. Ensure it is 'Shared > Anyone with the link'.");
+    }
+  };
+
+  // 🟢 FETCH GENERIC WIDGETS
   const fetchGenericWidgets = async () => {
     const { data: widgets } = await supabase.from('widgets').select('*').eq('dashboard_id', dashboardId);
     if (!widgets) return;
 
     const loadedWidgets: any[] = [];
-    
     for (const widget of widgets) {
         try {
-            // Apply Auto-CSV conversion here
             const csvUrl = toCSVUrl(widget.sheet_url);
-            
             const response = await fetch(csvUrl);
             const csvText = await response.text();
             
             Papa.parse(csvText, { 
-                header: true, 
-                skipEmptyLines: true, 
-                transformHeader: (h: string) => h.trim(), 
+                header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
                 complete: (results: any) => {
                     loadedWidgets.push({
-                        id: widget.id,
-                        title: widget.title,
-                        type: 'generic-sheet', 
-                        color: widget.color || 'blue',
-                        data: results.data, 
-                        columns: results.meta.fields, 
-                        rowCount: results.data.length,
-                        sheet_url: widget.sheet_url,
-                        settings: widget.settings || {} 
+                        id: widget.id, title: widget.title, type: 'generic-sheet', 
+                        color: widget.color || 'blue', data: results.data, 
+                        columns: results.meta.fields, rowCount: results.data.length,
+                        sheet_url: widget.sheet_url, settings: widget.settings || {} 
                     });
                 }
             });
@@ -138,9 +159,6 @@ export default function DynamicDashboard() {
   };
 
   const fetchSheetData = async (currentConfig: any) => {
-     // ... (Existing Schedule/Missions Fetchers - Unchanged) ...
-     // Keeping this brief to save space, assuming no changes needed here.
-     // If you need the full block again, just let me know!
      if (currentConfig.sheet_url_schedule) {
         const response = await fetch(currentConfig.sheet_url_schedule);
         Papa.parse(await response.text(), { 
@@ -181,9 +199,15 @@ export default function DynamicDashboard() {
   const saveMapping = async (newSettings: any) => {
       const updatedCard = { ...activeCard, settings: newSettings };
       setActiveCard(updatedCard);
-      setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? updatedCard : w));
+      // Determine if we need to update widgets or manual cards
+      if (activeCard.type === 'generic-sheet') {
+          setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? updatedCard : w));
+          await supabase.from('widgets').update({ settings: newSettings }).eq('id', activeCard.id);
+      } else {
+          setManualCards(prev => prev.map(c => c.id === activeCard.id ? updatedCard : c));
+          await supabase.from('Weeks').update({ settings: newSettings }).eq('id', activeCard.id);
+      }
       setIsMapping(false);
-      await supabase.from('widgets').update({ settings: newSettings }).eq('id', activeCard.id);
   };
 
   const deleteCard = async (id: any) => { 
@@ -217,13 +241,39 @@ export default function DynamicDashboard() {
   const deleteItemFromBlock = async (bIdx: number, iIdx: number) => { if(!confirm("Remove file?")) return; const currentBlocks = getBlocks(activeCard); currentBlocks[bIdx].items = currentBlocks[bIdx].items.filter((_: any, idx: number) => idx !== iIdx); updateResources(currentBlocks); };
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
-  const setActiveModal = (card: any) => { if (isEditing && activeCard) handleSave(); setIsEditing(false); setIsMapping(false); setActiveCard(card); setShowDocPreview(null); };
+  
+  // 🟢 OPEN MODAL (Enhanced to auto-load connected sheets)
+  const setActiveModal = (card: any) => { 
+      if (isEditing && activeCard) handleSave(); 
+      setIsEditing(false); setIsMapping(false); 
+      
+      // If card was previously connected to a sheet, load data immediately
+      if (card && card.settings?.connectedSheet && !card.data) {
+          // Temporarily set active with loading state if desired, but here we just load
+          loadSheetData(card.settings.connectedSheet, card);
+      } else {
+          setActiveCard(card); 
+      }
+      setShowDocPreview(null); 
+  };
   const toggleEditMode = () => { if(isEditing) handleSave(); setIsEditing(!isEditing); }
   const getBgColor = (c: string) => COLOR_MAP[c] || "bg-slate-700";
   const isGoogleDoc = (url: string) => url.includes("docs.google.com") || url.includes("drive.google.com");
   const getEmbedUrl = (url: string) => { if(url.includes("/document/d/")) return url.replace("/edit", "/preview"); if(url.includes("/spreadsheets/d/")) return url.replace("/edit", "/preview"); if(url.includes("/presentation/d/")) return url.replace("/edit", "/preview"); return url; };
   const getFileIcon = (item: any) => { if (item.iconUrl) return <img src={item.iconUrl} className="w-5 h-5" alt="icon" />; const title = item.title.toLowerCase(); let iconClass = "fas fa-link text-slate-400"; if (title.includes("calendar")) iconClass = "fas fa-calendar-alt text-emerald-500"; else if (title.includes("plan") || title.includes("strategy")) iconClass = "fas fa-map text-blue-500"; else if (title.includes("offering")) iconClass = "fas fa-hand-holding-heart text-green-500"; else if (isGoogleDoc(item.url)) iconClass = "fab fa-google-drive text-slate-500"; return <i className={`${iconClass} text-lg`}></i>; };
   const isCardEditable = (card: any) => card && card.source === 'manual';
+
+  // 🟢 FIND ATTACHED SHEET
+  const findAttachedSheet = () => {
+      if (!activeCard?.resources) return null;
+      // Look through all blocks and items for a spreadsheet link
+      for (const block of activeCard.resources) {
+          const sheet = block.items?.find((i:any) => i.url.includes('spreadsheets'));
+          if (sheet) return sheet.url;
+      }
+      return null;
+  };
+  const attachedSheetUrl = findAttachedSheet();
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
 
@@ -303,7 +353,7 @@ export default function DynamicDashboard() {
       {/* --- MODAL --- */}
       {activeCard && (
         <div onClick={() => setActiveModal(null)} className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-6 bg-slate-900/70 backdrop-blur-sm">
-          <div onClick={(e) => e.stopPropagation()} className={`bg-white w-full ${showDocPreview || activeCard.type === 'generic-sheet' ? "max-w-6xl h-[85vh]" : "max-w-2xl"} rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300`}>
+          <div onClick={(e) => e.stopPropagation()} className={`bg-white w-full ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "max-w-6xl h-[85vh]" : "max-w-2xl"} rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300`}>
             {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
@@ -330,10 +380,15 @@ export default function DynamicDashboard() {
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                 {/* Visual Mapper Button */}
-                 {activeCard.type === 'generic-sheet' && !isMapping && (
+                 {/* 🟢 VISUAL MAPPER BUTTON (NOW SHOWS IF SHEET IS ATTACHED) */}
+                 {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                     <button 
-                      onClick={() => setIsMapping(true)} 
+                      onClick={() => {
+                          if (attachedSheetUrl && !activeCard.data) {
+                              loadSheetData(attachedSheetUrl, activeCard);
+                          }
+                          setIsMapping(true);
+                      }} 
                       className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode 
                         ? "bg-white text-slate-700 border-white/50 hover:bg-slate-100" 
                         : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse"}`}
@@ -354,8 +409,8 @@ export default function DynamicDashboard() {
             
             {/* Body */}
             <div className="p-0 overflow-y-auto custom-scroll flex flex-col h-full bg-slate-50">
-              {/* GENERIC SHEET HANDLER */}
-              {activeCard.type === 'generic-sheet' ? (
+              {/* GENERIC SHEET OR MANUAL CARD WITH DATA */}
+              {(activeCard.type === 'generic-sheet' || activeCard.data) ? (
                   isMapping ? (
                       // 1. SPLIT-SCREEN VISUAL MAPPER
                       <div className="flex h-full">
@@ -409,7 +464,7 @@ export default function DynamicDashboard() {
                                   className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
                                 >
                                   <option value="">-- Select Column --</option>
-                                  {activeCard.columns.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
                                 </select>
                               </div>
 
@@ -422,7 +477,7 @@ export default function DynamicDashboard() {
                                   className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                                 >
                                   <option value="">-- None --</option>
-                                  {activeCard.columns.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
                                 </select>
                               </div>
 
@@ -435,7 +490,7 @@ export default function DynamicDashboard() {
                                   className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
                                 >
                                   <option value="">-- None --</option>
-                                  {activeCard.columns.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
                                 </select>
                               </div>
 
@@ -454,7 +509,7 @@ export default function DynamicDashboard() {
                                                  }}
                                                  className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
                                              >
-                                                {activeCard.columns.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                                {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
                                              </select>
                                              <button onClick={() => {
                                                   const newFields = activeCard.settings.extraFields.filter((_:any, i:number) => i !== idx);
@@ -464,7 +519,9 @@ export default function DynamicDashboard() {
                                      ))}
                                      <button onClick={() => {
                                          const current = activeCard.settings.extraFields || [];
-                                         setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: [...current, activeCard.columns[0]]}});
+                                         // Pick first column as default
+                                         const defaultCol = activeCard.columns?.[0] || "";
+                                         setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: [...current, defaultCol]}});
                                      }} className="text-xs font-bold text-blue-600 hover:underline">+ Add Field</button>
                                  </div>
                               </div>
@@ -597,8 +654,8 @@ export default function DynamicDashboard() {
                          <div className="flex-1 overflow-auto p-8 custom-scroll">
                             <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
                                 <table className="min-w-full divide-y divide-slate-200">
-                                    <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm"><tr>{activeCard.columns.map((col:string, idx:number) => (<th key={idx} className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap bg-slate-50">{col}</th>))}</tr></thead>
-                                    <tbody className="bg-white divide-y divide-slate-200">{activeCard.data.map((row:any, rIdx:number) => (<tr key={rIdx} className="hover:bg-blue-50/50 transition-colors group">{activeCard.columns.map((col:string, cIdx:number) => (<td key={cIdx} className="px-6 py-4 whitespace-nowrap text-sm">{renderCellContent(row[col])}</td>))}</tr>))}</tbody>
+                                    <thead className="bg-slate-50 sticky top-0 z-10 shadow-sm"><tr>{activeCard.columns?.map((col:string, idx:number) => (<th key={idx} className="px-6 py-4 text-left text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap bg-slate-50">{col}</th>))}</tr></thead>
+                                    <tbody className="bg-white divide-y divide-slate-200">{activeCard.data.map((row:any, rIdx:number) => (<tr key={rIdx} className="hover:bg-blue-50/50 transition-colors group">{activeCard.columns?.map((col:string, cIdx:number) => (<td key={cIdx} className="px-6 py-4 whitespace-nowrap text-sm">{renderCellContent(row[col])}</td>))}</tr>))}</tbody>
                                 </table>
                             </div>
                          </div>
