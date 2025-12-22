@@ -212,12 +212,10 @@ export default function DynamicDashboard() {
       setIsMapping(false);
   };
 
-  // 🔴 FIXED DELETE FUNCTION (No reload, just state update)
   const deleteCard = async (card: any) => { 
       if (!card || !card.id) return alert("Error: Card missing");
       if(!confirm("Delete this card permanently?")) return; 
 
-      // Optimistic UI Update
       if (card.source === 'manual') {
           setManualCards(prev => prev.filter(c => c.id !== card.id));
           await supabase.from('Weeks').delete().eq('id', card.id);
@@ -225,11 +223,9 @@ export default function DynamicDashboard() {
           setGenericWidgets(prev => prev.filter(c => c.id !== card.id));
           await supabase.from('widgets').delete().eq('id', card.id);
       }
-      
       setActiveCard(null);
   };
   
-  // 🔴 FIXED ADD CARD FUNCTION (Auto-assigns category)
   const addNewCard = async (sectionName: string) => { 
       const newOrder = manualCards.length; 
       const defaultResources = [{ title: "General Files", items: [] }];
@@ -242,7 +238,7 @@ export default function DynamicDashboard() {
           color: "green", 
           sort_order: newOrder, 
           dashboard_id: dashboardId, 
-          settings: settings // 🟢 IMPORTANT: Saves category immediately
+          settings: settings 
       }]).select(); 
       
       if (data) { 
@@ -296,34 +292,45 @@ export default function DynamicDashboard() {
       else { setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c)); await supabase.from('Weeks').update({ settings: newSettings }).eq('id', card.id); }
   };
 
-  // 🔴 FIXED ADD SECTION (No duplicates)
   const addSection = async () => { 
       const name = prompt("New Section Name:"); 
       if (!name) return; 
-      if (sections.includes(name)) return alert("Section already exists"); // Prevent duplicate
+      if (sections.includes(name)) return alert("Section already exists"); 
       
       const newSections = [...sections, name]; 
       setSections(newSections); 
-      // Save entire list via RPC to ensure sync
       await supabase.rpc('update_dashboard_sections', { p_dashboard_id: dashboardId, p_sections: newSections });
   };
   
-  // 🔴 FIXED RENAME SECTION (Syncs list & cards)
+  // 🟢 DELETE SECTION (New)
+  const deleteSection = async (sectionName: string) => {
+      if(!confirm(`Delete section "${sectionName}"? Cards in this section will be moved to the top.`)) return;
+      
+      const newSections = sections.filter(s => s !== sectionName);
+      setSections(newSections);
+      
+      // Save List
+      await supabase.rpc('update_dashboard_sections', { p_dashboard_id: dashboardId, p_sections: newSections });
+      
+      // Move cards to safe zone (First available section or Planning)
+      const safeZone = newSections[0] || "Planning & Resources";
+      await supabase.rpc('delete_dashboard_section_logic', { p_dashboard_id: dashboardId, p_section_to_delete: sectionName, p_safe_section: safeZone });
+      
+      // Reload to see moved cards
+      window.location.reload();
+  };
+
   const renameSection = async (oldName: string, type: 'custom' | 'schedule' | 'missions') => {
       const newName = prompt("Rename Section:", oldName); 
       if (!newName || newName === oldName) return;
       
       let newSettings = { ...config.settings };
       if (type === 'custom') { 
-          // 1. Update UI List
           const newSections = sections.map(s => s === oldName ? newName : s); 
           setSections(newSections); 
-          
-          // 2. Update Local Cards
           setManualCards(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c)); 
           setGenericWidgets(prev => prev.map(c => c.settings?.category === oldName ? { ...c, settings: { ...c.settings, category: newName } } : c));
           
-          // 3. Save via RPC
           await supabase.rpc('update_dashboard_sections', { p_dashboard_id: dashboardId, p_sections: newSections });
           await supabase.rpc('rename_dashboard_section_logic', { p_dashboard_id: dashboardId, p_old_name: oldName, p_new_name: newName });
       } 
@@ -435,8 +442,15 @@ export default function DynamicDashboard() {
                 return (
                     <div key={section} className="space-y-4 animate-in fade-in duration-500">
                         <div className="flex items-center justify-between group">
-                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(section, 'custom')}>
-                                <i className="fas fa-layer-group"></i> {section} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
+                            <div className="flex items-center gap-2">
+                                {/* Rename Click */}
+                                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(section, 'custom')}>
+                                    <i className="fas fa-layer-group"></i> {section} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
+                                </div>
+                                {/* 🔴 DELETE BUTTON (New) */}
+                                <button onClick={() => deleteSection(section)} className="text-slate-300 hover:text-red-500 transition-colors text-xs" title="Delete Section">
+                                    <i className="fas fa-trash"></i>
+                                </button>
                             </div>
                             <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>
                         </div>
@@ -470,6 +484,7 @@ export default function DynamicDashboard() {
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
                  <h3 ref={titleRef} contentEditable={isEditing} suppressContentEditableWarning={true} className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}>{activeCard.title}</h3>
+                 
                  {isEditing && isCardEditable(activeCard) && (
                    <div className="mt-3 space-y-3 animate-in fade-in slide-in-from-left-2 duration-200">
                      <div className="flex gap-2">
@@ -558,7 +573,6 @@ export default function DynamicDashboard() {
                   <div className="p-0 bg-slate-50 min-h-full">
                       <div className="bg-sky-50 p-8 border-b border-sky-100 flex flex-col md:flex-row justify-between items-center gap-6"><div><div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-1">Upcoming Departure</div><h2 className="text-3xl font-bold text-slate-800 mb-1">{activeCard.upcomingLoc} Team</h2><div className="flex items-center gap-2 text-slate-500"><i className="far fa-calendar-alt"></i> {activeCard.upcomingDate}</div></div><div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-sky-100 text-center min-w-[120px]"><div className="text-4xl font-bold text-sky-600">{activeCard.upcomingOpen}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Open Spots</div></div></div>
                       <div className="p-8"><div className="flex items-center gap-2 mb-4"><i className="fas fa-ticket-alt text-slate-400"></i><h4 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Open Registrations</h4></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{activeCard.trips.map((trip: any, idx: number) => (<div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm"><div><div className="font-bold text-slate-800 text-lg">{trip.name}</div><div className="text-xs text-slate-400 mt-1">Registration Open</div></div><div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{trip.spots} Spots</div></div>))}</div></div>
-                      {/* 🟢 RESTORED: 2026 Statistics (Staff vs Non-Staff) */}
                       <div className="bg-white p-8 border-t border-slate-200">
                           <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-6">2026 Statistics</h4>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
