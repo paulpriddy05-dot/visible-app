@@ -39,15 +39,34 @@ const renderCellContent = (content: string) => {
   return <span className="text-slate-700 font-medium">{content}</span>;
 };
 
-// --- SUB-COMPONENT: Sortable Manual Card ---
-function SortableCard({ card, onClick, getBgColor }: any) {
+// --- SUB-COMPONENT: Sortable Manual Card (SMART TRANSFORMER) ---
+// Now accepts a 'variant' prop to auto-reformat based on section
+function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, data: { ...card } });
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
   
+  // 🟢 VARIANT 1: HORIZONTAL (For Weekly Schedule)
+  if (variant === 'horizontal') {
+      return (
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-4 text-white flex flex-row items-center text-left h-24 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
+            {/* Left Icon Circle */}
+            <div className="bg-white/20 h-12 w-12 rounded-full flex items-center justify-center mr-4 shrink-0 backdrop-blur-sm">
+                <i className="fas fa-calendar-alt text-xl"></i>
+            </div>
+            {/* Text Content */}
+            <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-lg leading-tight truncate">{card.title}</h4>
+                <div className="text-xs font-medium opacity-80 mt-1 truncate">{card.date_label || "No Date"}</div>
+            </div>
+        </div>
+      );
+  }
+
+  // 🟢 VARIANT 2: VERTICAL (Standard Box)
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
         <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className="fas fa-folder-open text-3xl"></i></div>
-        <h4 className="font-bold text-xl tracking-wide">{card.title}</h4>
+        <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title}</h4>
         <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1"><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</div>
     </div>
   );
@@ -61,11 +80,11 @@ export default function DynamicDashboard() {
   // State
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [scheduleCards, setScheduleCards] = useState<any[]>([]); 
+  const [scheduleCards, setScheduleCards] = useState<any[]>([]); // These come from CSV
   const [missionCard, setMissionCard] = useState<any | null>(null); 
   const [manualCards, setManualCards] = useState<any[]>([]);     
   const [genericWidgets, setGenericWidgets] = useState<any[]>([]);
-  const [sections, setSections] = useState<string[]>(["Planning & Resources"]); // Default section
+  const [sections, setSections] = useState<string[]>(["Planning & Resources"]); 
   
   // UI State
   const [activeCard, setActiveCard] = useState<any | null>(null);
@@ -90,12 +109,7 @@ export default function DynamicDashboard() {
         const { data: dashConfig } = await supabase.from('dashboards').select('*').eq('id', dashboardId).single();
         if (!dashConfig) return alert("Dashboard not found");
         setConfig(dashConfig);
-        
-        // 🟢 LOAD CUSTOM SECTIONS (If saved)
-        if (dashConfig.settings?.sections) {
-            setSections(dashConfig.settings.sections);
-        }
-
+        if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
         await fetchSheetData(dashConfig);
         await fetchManualCards();
         await fetchGenericWidgets(); 
@@ -144,7 +158,20 @@ export default function DynamicDashboard() {
      if (currentConfig.sheet_url_schedule) {
         const response = await fetch(currentConfig.sheet_url_schedule);
         Papa.parse(await response.text(), { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
-                const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({ id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet" }));
+                const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({ 
+                    id: `sheet1-${index}`, 
+                    title: row["Week Label"], 
+                    date_label: row["Date"] || "", 
+                    scripture: row["Passage"] || "", 
+                    worship: row["Song List"] || "", 
+                    response_song: row["Response Song"] || "", 
+                    offering: row["Offering"] || "", 
+                    resources: [], 
+                    color: row["Color"] ? row["Color"].toLowerCase() : "purple", 
+                    source: "google-sheet",
+                    // ⚠️ IMPORTANT: Force these CSV cards to belong to the "Weekly Schedule" category visually
+                    category: "Weekly Schedule" 
+                }));
                 setScheduleCards(cards);
             }});
     }
@@ -178,7 +205,6 @@ export default function DynamicDashboard() {
       setIsMapping(false);
   };
 
-  // 🟢 FIXED DELETE CARD (Handles Widgets correctly now)
   const deleteCard = async (card: any) => { 
       if (!card || !card.id) return alert("Error: Card missing");
       const isManual = card.source === 'manual';
@@ -202,14 +228,12 @@ export default function DynamicDashboard() {
   const addNewCard = async (sectionName: string) => { 
       const newOrder = manualCards.length; 
       const defaultResources = [{ title: "General Files", items: [] }];
-      // Store the section name in the 'settings' JSON so we know where to put it
       const settings = { category: sectionName };
       
       const { data } = await supabase.from('Weeks').insert([{ title: "New Resource Hub", date_label: "", resources: defaultResources, color: "green", sort_order: newOrder, dashboard_id: dashboardId, settings: settings }]).select(); 
       if (data) { const newCard = { ...data[0], source: 'manual' }; setManualCards([...manualCards, newCard]); setActiveCard(newCard); setIsEditing(true); } 
   };
 
-  // 🟢 DRAG & DROP LOGIC (Handles moving between sections)
   const handleDragStart = (event: any) => { setActiveDragItem(event.active.data.current); };
 
   const handleDragEnd = async (event: any) => { 
@@ -217,33 +241,36 @@ export default function DynamicDashboard() {
     setActiveDragItem(null);
     if (!over) return;
 
-    // 1. Identify Source and Dest Cards
     const activeId = active.id;
     const overId = over.id;
-
-    // 2. Find the cards in our state
     const allItems = [...manualCards, ...genericWidgets];
     const activeItem = allItems.find(i => i.id === activeId);
     
-    // If dropped on a container (Section Header), move it to that section
-    if (sections.includes(overId)) {
+    // 🟢 HANDLE DROP INTO WEEKLY SCHEDULE (or any section header)
+    if (overId === "Weekly Schedule" || sections.includes(overId)) {
         if (activeItem) {
             updateCardCategory(activeItem, overId);
         }
         return;
     }
 
-    // If dropped on another card
     if (activeId !== overId) {
-        // Just reorder within the same list for now (simple impl)
         setManualCards((items) => { 
             const oldIndex = items.findIndex((item) => item.id === activeId); 
             const newIndex = items.findIndex((item) => item.id === overId); 
             return arrayMove(items, oldIndex, newIndex); 
         });
         
-        // If we dragged onto a card in a DIFFERENT section, update category
         const overItem = allItems.find(i => i.id === overId);
+        // Also check if we are dropping ONTO a card that lives in Weekly Schedule
+        // (This allows reordering within the mixed Weekly Schedule list)
+        const weeklyScheduleIds = [...scheduleCards, ...manualCards.filter(c => c.settings?.category === 'Weekly Schedule')].map(c => c.id);
+        
+        if (weeklyScheduleIds.includes(overId) && activeItem) {
+             updateCardCategory(activeItem, "Weekly Schedule");
+             return;
+        }
+
         if (activeItem && overItem) {
             const activeCat = activeItem.settings?.category || sections[0];
             const overCat = overItem.settings?.category || sections[0];
@@ -258,7 +285,6 @@ export default function DynamicDashboard() {
       const newSettings = { ...card.settings, category: newCategory };
       const updatedCard = { ...card, settings: newSettings };
       
-      // Update State
       if (card.type === 'generic-sheet') {
           setGenericWidgets(prev => prev.map(w => w.id === card.id ? updatedCard : w));
           await supabase.from('widgets').update({ settings: newSettings }).eq('id', card.id);
@@ -268,13 +294,11 @@ export default function DynamicDashboard() {
       }
   };
 
-  // 🟢 SECTION MANAGEMENT
   const addSection = async () => {
       const name = prompt("New Section Name:");
       if (!name) return;
       const newSections = [...sections, name];
       setSections(newSections);
-      // Save to Dashboard Config
       await supabase.from('dashboards').update({ settings: { ...config.settings, sections: newSections } }).eq('id', dashboardId);
   };
   
@@ -284,8 +308,6 @@ export default function DynamicDashboard() {
       const newSections = sections.map(s => s === oldName ? newName : s);
       setSections(newSections);
       await supabase.from('dashboards').update({ settings: { ...config.settings, sections: newSections } }).eq('id', dashboardId);
-      // We visually update immediately, but cards linked to the old name might need updating in a real app
-      // For now, we will just update the section list.
   };
 
   // Helpers
@@ -319,6 +341,13 @@ export default function DynamicDashboard() {
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
 
+  // 🟢 MERGE DATA: Combine CSV Cards + Manual Cards that have moved to 'Weekly Schedule'
+  const weeklyScheduleItems = [
+      ...scheduleCards,
+      ...manualCards.filter(c => c.settings?.category === "Weekly Schedule"),
+      ...genericWidgets.filter(c => c.settings?.category === "Weekly Schedule")
+  ];
+
   return (
     <div className="pb-20 min-h-screen bg-slate-50/50">
       <nav className="bg-slate-900 text-white sticky top-0 z-40 shadow-lg">
@@ -343,51 +372,53 @@ export default function DynamicDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
-        {/* 1. WEEKLY SCHEDULE (FIXED SECTION) */}
-        {scheduleCards.length > 0 && (
+        
+        {/* 🟢 1. WEEKLY SCHEDULE (NOW A DROP ZONE) */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="space-y-4">
                 <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1">
                     <i className="fas fa-calendar-alt"></i> Weekly Schedule
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {scheduleCards.filter(doesCardMatch).map((card) => (
-                        <div key={card.id} onClick={() => setActiveModal(card)} className={`cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-4 text-white flex flex-row items-center text-left h-24 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
-                            <div className="bg-white/20 h-12 w-12 rounded-full flex items-center justify-center mr-4 shrink-0 backdrop-blur-sm"><i className="fas fa-calendar-alt text-xl"></i></div>
-                            <div><h4 className="font-bold text-lg leading-tight">{card.title}</h4><div className="text-xs font-medium opacity-80 mt-1">{card.date_label}</div></div>
+                <SortableContext items={weeklyScheduleItems} strategy={rectSortingStrategy} id="Weekly Schedule">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
+                        {weeklyScheduleItems.filter(doesCardMatch).map((card) => (
+                            <SortableCard 
+                                key={card.id} 
+                                card={card} 
+                                onClick={setActiveModal} 
+                                getBgColor={getBgColor} 
+                                variant="horizontal" // 👈 Forces horizontal layout!
+                            />
+                        ))}
+                    </div>
+                </SortableContext>
+            </div>
+
+            {/* 2. MISSIONS (Static - Unchanged) */}
+            {missionCard && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1">
+                        <i className="fas fa-plane-departure"></i> Missions
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div onClick={() => setActiveModal(missionCard)} className={`md:col-span-1 cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}>
+                            <div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className="fas fa-globe-americas text-2xl"></i></div>
+                            <h4 className="font-bold text-lg tracking-wide">{missionCard.title}</h4>
+                            <div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div>
                         </div>
-                    ))}
+                    </div>
                 </div>
-            </div>
-        )}
+            )}
 
-        {/* 2. MISSIONS (FIXED SECTION) */}
-        {missionCard && (
-            <div className="space-y-4">
-                 <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1">
-                    <i className="fas fa-plane-departure"></i> Missions
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                     <div onClick={() => setActiveModal(missionCard)} className={`md:col-span-1 cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}>
-                        <div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className="fas fa-globe-americas text-2xl"></i></div>
-                        <h4 className="font-bold text-lg tracking-wide">{missionCard.title}</h4>
-                        <div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div>
-                     </div>
-                </div>
-            </div>
-        )}
-
-        {/* 3. DYNAMIC CUSTOM SECTIONS (DRAGGABLE) */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            {/* 3. DYNAMIC CUSTOM SECTIONS */}
             {sections.map((section) => {
-                // Filter cards that belong to this section
                 const sectionCards = [...manualCards, ...genericWidgets].filter(c => {
-                    const cat = c.settings?.category || sections[0]; // Default to first section if undefined
+                    const cat = c.settings?.category || sections[0]; 
                     return cat === section;
                 }).filter(doesCardMatch);
 
                 return (
                     <div key={section} className="space-y-4 animate-in fade-in duration-500">
-                        {/* SECTION HEADER */}
                         <div className="flex items-center justify-between group">
                             <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(section)}>
                                 <i className="fas fa-layer-group"></i> {section} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
@@ -397,20 +428,10 @@ export default function DynamicDashboard() {
                             </button>
                         </div>
                         
-                        {/* DROP ZONE */}
                         <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-slate-200/50 p-2 transition-colors hover:border-blue-200/50">
                                 {sectionCards.map((card) => (
-                                    card.type === 'generic-sheet' ? (
-                                        // WIDGET RENDER
-                                        <div key={card.id} className="relative">
-                                            <SortableCard card={card} onClick={setActiveModal} getBgColor={getBgColor} />
-                                            {/* Overlay specific styling for widgets if needed, but SortableCard handles basic structure */}
-                                        </div>
-                                    ) : (
-                                        // MANUAL CARD RENDER
-                                        <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} />
-                                    )
+                                    <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} />
                                 ))}
                                 {sectionCards.length === 0 && (
                                     <div className="col-span-full flex items-center justify-center text-slate-300 text-sm font-medium italic h-24">
@@ -431,7 +452,6 @@ export default function DynamicDashboard() {
             </DragOverlay>
         </DndContext>
 
-        {/* ADD NEW SECTION BUTTON */}
         <div className="pt-8 border-t border-slate-200 text-center">
             <button onClick={addSection} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">
                 <i className="fas fa-plus"></i> Add New Section
@@ -470,7 +490,6 @@ export default function DynamicDashboard() {
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                 {/* 🟢 VISUAL MAPPER BUTTON */}
                  {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                     <button 
                       onClick={() => {
@@ -491,7 +510,6 @@ export default function DynamicDashboard() {
                     <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
                  )}
                  {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
-                 {/* 🔴 FIXED DELETE BUTTON */}
                  {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && (
                   <button 
                     onClick={() => deleteCard(activeCard)} 
@@ -508,10 +526,8 @@ export default function DynamicDashboard() {
             
             {/* Body */}
             <div className="p-0 overflow-y-auto custom-scroll flex flex-col h-full bg-slate-50">
-              {/* GENERIC SHEET OR MANUAL CARD WITH DATA */}
               {(activeCard.type === 'generic-sheet' || activeCard.data) ? (
                   isMapping ? (
-                      // 1. SPLIT-SCREEN VISUAL MAPPER
                       <div className="flex h-full">
                         {/* LEFT SIDEBAR: CONTROLS */}
                         <div className="w-1/3 bg-white border-r border-slate-200 flex flex-col">
