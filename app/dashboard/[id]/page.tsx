@@ -200,33 +200,16 @@ export default function DynamicDashboard() {
   };
 
   const saveMapping = async (newSettings: any) => {
-      // 🟢 FIXED: Securely Move Cards via SQL
-  const updateCardCategory = async (card: any, newCategory: string) => {
-      // 1. Optimistic UI Update (Instant feedback)
-      const newSettings = { ...card.settings, category: newCategory };
-      const updatedCard = { ...card, settings: newSettings };
-      
-      if (card.type === 'generic-sheet') {
-          setGenericWidgets(prev => prev.map(w => w.id === card.id ? updatedCard : w));
+      const updatedCard = { ...activeCard, settings: newSettings };
+      setActiveCard(updatedCard);
+      if (activeCard.type === 'generic-sheet') {
+          setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? updatedCard : w));
+          await supabase.from('widgets').update({ settings: newSettings }).eq('id', activeCard.id);
       } else {
-          setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
+          setManualCards(prev => prev.map(c => c.id === activeCard.id ? updatedCard : c));
+          await supabase.from('Weeks').update({ settings: newSettings }).eq('id', activeCard.id);
       }
-
-      // 2. Determine Type ('manual' or 'widget')
-      // Note: We use 'manual' for "Weeks" table items, 'widget' for "widgets" table items
-      const type = card.type === 'generic-sheet' ? 'widget' : 'manual';
-
-      // 3. Send to Database via Secure Function
-      const { error } = await supabase.rpc('move_dashboard_card', {
-          p_card_id: card.id,
-          p_new_category: newCategory,
-          p_card_type: type
-      });
-
-      if (error) {
-          console.error("Move failed:", error);
-          alert("Could not save move. Check console.");
-      }
+      setIsMapping(false);
   };
 
   const deleteCard = async (card: any) => { 
@@ -302,11 +285,33 @@ export default function DynamicDashboard() {
     } 
   };
 
+  // 🟢 FIXED: Securely Move Cards via SQL
   const updateCardCategory = async (card: any, newCategory: string) => {
+      // 1. Optimistic UI Update (Instant feedback)
       const newSettings = { ...card.settings, category: newCategory };
       const updatedCard = { ...card, settings: newSettings };
-      if (card.type === 'generic-sheet') { setGenericWidgets(prev => prev.map(w => w.id === card.id ? updatedCard : w)); await supabase.from('widgets').update({ settings: newSettings }).eq('id', card.id); } 
-      else { setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c)); await supabase.from('Weeks').update({ settings: newSettings }).eq('id', card.id); }
+      
+      if (card.type === 'generic-sheet') {
+          setGenericWidgets(prev => prev.map(w => w.id === card.id ? updatedCard : w));
+      } else {
+          setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
+      }
+
+      // 2. Determine Type ('manual' or 'widget')
+      // Note: We use 'manual' for "Weeks" table items, 'widget' for "widgets" table items
+      const type = card.type === 'generic-sheet' ? 'widget' : 'manual';
+
+      // 3. Send to Database via Secure Function
+      const { error } = await supabase.rpc('move_dashboard_card', {
+          p_card_id: card.id,
+          p_new_category: newCategory,
+          p_card_type: type
+      });
+
+      if (error) {
+          console.error("Move failed:", error);
+          alert("Could not save move. Check console.");
+      }
   };
 
   const addSection = async () => { 
