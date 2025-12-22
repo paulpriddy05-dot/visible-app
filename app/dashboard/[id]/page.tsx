@@ -21,7 +21,6 @@ const COLOR_MAP: Record<string, string> = {
   grey: "bg-purple-600", orange: "bg-orange-600", teal: "bg-cyan-600", slate: "bg-slate-700",
 };
 
-// 🟢 ICON OPTIONS
 const ICON_OPTIONS = [
   "fa-folder-open", "fa-calendar-alt", "fa-music", "fa-book-open", 
   "fa-users", "fa-hand-holding-heart", "fa-money-bill-wave", "fa-bullhorn", 
@@ -166,7 +165,22 @@ export default function DynamicDashboard() {
             Papa.parse(csvText, { 
                 header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
                 complete: (results: any) => {
-                    loadedWidgets.push({ id: widget.id, title: widget.title, type: 'generic-sheet', color: widget.color || 'blue', data: results.data, columns: results.meta.fields, rowCount: results.data.length, sheet_url: widget.sheet_url, settings: widget.settings || {} });
+                    // 🟢 GHOST CARD FIX: If category is missing, set a default immediately
+                    const safeSettings = widget.settings || {};
+                    if (!safeSettings.category) {
+                        safeSettings.category = "Planning & Resources";
+                    }
+                    loadedWidgets.push({ 
+                        id: widget.id, 
+                        title: widget.title, 
+                        type: 'generic-sheet', 
+                        color: widget.color || 'blue', 
+                        data: results.data, 
+                        columns: results.meta.fields, 
+                        rowCount: results.data.length, 
+                        sheet_url: widget.sheet_url, 
+                        settings: safeSettings 
+                    });
                 }
             });
         } catch (e) { console.error("Error fetching widget", widget.title); }
@@ -389,6 +403,7 @@ export default function DynamicDashboard() {
               <div className="h-8 w-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg">{config?.title ? config.title.substring(0, 2).toUpperCase() : 'DB'}</div>
               <span className="font-semibold text-lg tracking-tight hidden md:block">{config?.title || "Loading..."}</span>
             </div>
+            
             <div className="flex items-center gap-4">
                 <button onClick={() => { if (!config?.share_token) return alert("Error: No token."); const link = `${window.location.origin}/join/${config.share_token}`; navigator.clipboard.writeText(link); alert("Invite Link Copied!"); }} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"><i className="fas fa-user-plus"></i><span>Invite</span></button>
                 <div className="relative"><i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i><input type="text" placeholder="find a document..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"/></div>
@@ -402,6 +417,7 @@ export default function DynamicDashboard() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+        
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             
             {/* 1. WEEKLY SCHEDULE */}
@@ -442,8 +458,12 @@ export default function DynamicDashboard() {
 
             {/* 3. DYNAMIC CUSTOM SECTIONS */}
             {sections.map((section) => {
+                // 🟢 FIXED: GHOST CARD LOGIC
+                // Previously, cards without a category were falling into sections[0].
+                // Now we explicitly check if they belong to THIS section.
                 const sectionCards = [...manualCards, ...genericWidgets].filter(c => {
-                    const cat = c.settings?.category || sections[0]; 
+                    // Fallback to "Planning & Resources" if no category is set
+                    const cat = c.settings?.category || "Planning & Resources"; 
                     return cat === section;
                 }).filter(doesCardMatch);
 
