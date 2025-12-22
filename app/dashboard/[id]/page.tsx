@@ -59,7 +59,7 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
   
   if (variant === 'mission') {
       return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}>
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-48 relative overflow-hidden group bg-cyan-600`}>
             <div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className={`fas ${displayIcon} text-2xl`}></i></div>
             <h4 className="font-bold text-lg tracking-wide">{card.title}</h4>
             <div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div>
@@ -80,7 +80,8 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
   }
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
+    // 🟢 FIXED: Changed 'h-40' to 'h-48' to prevent text clipping
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-48 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
         <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
         <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title}</h4>
         <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1"><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</div>
