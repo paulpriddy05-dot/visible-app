@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import Papa from "papaparse";
 import useDrivePicker from "react-google-drive-picker";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useParams } from "next/navigation";
@@ -21,7 +21,6 @@ const COLOR_MAP: Record<string, string> = {
   grey: "bg-purple-600", orange: "bg-orange-600", teal: "bg-cyan-600", slate: "bg-slate-700",
 };
 
-// 🟢 HELPER: Convert Google Sheet URL to CSV Export URL
 const toCSVUrl = (url: string) => {
   if (!url) return "";
   if (url.includes("docs.google.com/spreadsheets")) {
@@ -30,7 +29,6 @@ const toCSVUrl = (url: string) => {
   return url;
 };
 
-// 🟢 HELPER: Detects links and status badges
 const renderCellContent = (content: string) => {
   if (!content) return <span className="text-slate-300">-</span>;
   if (content.startsWith('http')) return <a href={content} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"><i className="fas fa-external-link-alt text-[10px]"></i> Link</a>;
@@ -43,8 +41,9 @@ const renderCellContent = (content: string) => {
 
 // --- SUB-COMPONENT: Sortable Manual Card ---
 function SortableCard({ card, onClick, getBgColor }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.5 : 1 };
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, data: { ...card } });
+  const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
+  
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
         <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className="fas fa-folder-open text-3xl"></i></div>
@@ -66,6 +65,7 @@ export default function DynamicDashboard() {
   const [missionCard, setMissionCard] = useState<any | null>(null); 
   const [manualCards, setManualCards] = useState<any[]>([]);     
   const [genericWidgets, setGenericWidgets] = useState<any[]>([]);
+  const [sections, setSections] = useState<string[]>(["Planning & Resources"]); // Default section
   
   // UI State
   const [activeCard, setActiveCard] = useState<any | null>(null);
@@ -76,13 +76,13 @@ export default function DynamicDashboard() {
   const [openPicker] = useDrivePicker();
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeDragItem, setActiveDragItem] = useState<any>(null);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const titleRef = useRef<HTMLHeadingElement>(null);
   const newItemTitleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // 🟢 FETCH EVERYTHING
   useEffect(() => {
     if(!dashboardId) return;
     const initDashboard = async () => {
@@ -90,6 +90,12 @@ export default function DynamicDashboard() {
         const { data: dashConfig } = await supabase.from('dashboards').select('*').eq('id', dashboardId).single();
         if (!dashConfig) return alert("Dashboard not found");
         setConfig(dashConfig);
+        
+        // 🟢 LOAD CUSTOM SECTIONS (If saved)
+        if (dashConfig.settings?.sections) {
+            setSections(dashConfig.settings.sections);
+        }
+
         await fetchSheetData(dashConfig);
         await fetchManualCards();
         await fetchGenericWidgets(); 
@@ -98,59 +104,35 @@ export default function DynamicDashboard() {
     initDashboard();
   }, [dashboardId]);
 
-  // 🟢 HELPER: FETCH CSV DATA FOR ANY CARD
   const loadSheetData = async (url: string, card: any) => {
     try {
         const csvUrl = toCSVUrl(url);
         const response = await fetch(csvUrl);
         const csvText = await response.text();
-        
         Papa.parse(csvText, { 
-            header: true, 
-            skipEmptyLines: true, 
-            transformHeader: (h: string) => h.trim(), 
+            header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
             complete: (results: any) => {
-                // Update the active card with data so it can be visualized
-                const enrichedCard = {
-                    ...card,
-                    data: results.data,
-                    columns: results.meta.fields,
-                    rowCount: results.data.length,
-                    sheet_url: url, // Track which sheet we used
-                    settings: { ...card.settings, connectedSheet: url } // Save connection
-                };
+                const enrichedCard = { ...card, data: results.data, columns: results.meta.fields, rowCount: results.data.length, sheet_url: url, settings: { ...card.settings, connectedSheet: url } };
                 setActiveCard(enrichedCard);
-                // Also update persistent manualCards state
                 setManualCards(prev => prev.map(c => c.id === card.id ? enrichedCard : c));
             }
         });
-    } catch (e) {
-        console.error("Failed to load sheet data", e);
-        alert("Could not load sheet. Ensure it is 'Shared > Anyone with the link'.");
-    }
+    } catch (e) { console.error("Failed to load sheet data", e); alert("Could not load sheet. Ensure it is 'Shared > Anyone with the link'."); }
   };
 
-  // 🟢 FETCH GENERIC WIDGETS
   const fetchGenericWidgets = async () => {
     const { data: widgets } = await supabase.from('widgets').select('*').eq('dashboard_id', dashboardId);
     if (!widgets) return;
-
     const loadedWidgets: any[] = [];
     for (const widget of widgets) {
         try {
             const csvUrl = toCSVUrl(widget.sheet_url);
             const response = await fetch(csvUrl);
             const csvText = await response.text();
-            
             Papa.parse(csvText, { 
                 header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
                 complete: (results: any) => {
-                    loadedWidgets.push({
-                        id: widget.id, title: widget.title, type: 'generic-sheet', 
-                        color: widget.color || 'blue', data: results.data, 
-                        columns: results.meta.fields, rowCount: results.data.length,
-                        sheet_url: widget.sheet_url, settings: widget.settings || {} 
-                    });
+                    loadedWidgets.push({ id: widget.id, title: widget.title, type: 'generic-sheet', color: widget.color || 'blue', data: results.data, columns: results.meta.fields, rowCount: results.data.length, sheet_url: widget.sheet_url, settings: widget.settings || {} });
                 }
             });
         } catch (e) { console.error("Error fetching widget", widget.title); }
@@ -161,32 +143,20 @@ export default function DynamicDashboard() {
   const fetchSheetData = async (currentConfig: any) => {
      if (currentConfig.sheet_url_schedule) {
         const response = await fetch(currentConfig.sheet_url_schedule);
-        Papa.parse(await response.text(), { 
-            header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
-            complete: (results: any) => {
-                const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({
-                    id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet"
-                }));
+        Papa.parse(await response.text(), { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
+                const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({ id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet" }));
                 setScheduleCards(cards);
-            }
-        });
+            }});
     }
     if (currentConfig.sheet_url_missions) {
         const response = await fetch(currentConfig.sheet_url_missions);
-        Papa.parse(await response.text(), { 
-            header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
-            complete: (results: any) => {
+        Papa.parse(await response.text(), { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
                 const data = results.data;
                 if (data.length > 0) {
                      const row1 = data[0]; 
-                     setMissionCard({
-                        id: 'missions-status', title: "Missions Status",
-                        totalNonStaff: row1["Total Non-Staff"], totalStaff: row1["Total Staff"], percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"], percentStaff: row1["% of Staff on Trips"], totalOpen: row1["Open Spots"],
-                        upcomingLoc: data.find((r:any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD", upcomingDate: data.find((r:any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD", upcomingOpen: data.find((r:any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0", upcomingStatus: data.find((r:any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open", trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"), color: "teal", source: "missions-dashboard"
-                    });
+                     setMissionCard({ id: 'missions-status', title: "Missions Status", totalNonStaff: row1["Total Non-Staff"], totalStaff: row1["Total Staff"], percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"], percentStaff: row1["% of Staff on Trips"], totalOpen: row1["Open Spots"], upcomingLoc: data.find((r:any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD", upcomingDate: data.find((r:any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD", upcomingOpen: data.find((r:any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0", upcomingStatus: data.find((r:any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open", trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"), color: "teal", source: "missions-dashboard" });
                 }
-            }
-        });
+            }});
     }
   };
 
@@ -195,11 +165,9 @@ export default function DynamicDashboard() {
     if (data) setManualCards(data.map((item: any) => ({ ...item, source: 'manual' })));
   };
 
-  // --- ACTIONS ---
   const saveMapping = async (newSettings: any) => {
       const updatedCard = { ...activeCard, settings: newSettings };
       setActiveCard(updatedCard);
-      // Determine if we need to update widgets or manual cards
       if (activeCard.type === 'generic-sheet') {
           setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? updatedCard : w));
           await supabase.from('widgets').update({ settings: newSettings }).eq('id', activeCard.id);
@@ -210,24 +178,116 @@ export default function DynamicDashboard() {
       setIsMapping(false);
   };
 
-  const deleteCard = async (id: any) => { 
-      if (!id) return alert("Error: ID missing");
-      if (String(id).startsWith("sheet") || id === 'missions-status' || String(id).includes('generic')) return; 
+  // 🟢 FIXED DELETE CARD (Handles Widgets correctly now)
+  const deleteCard = async (card: any) => { 
+      if (!card || !card.id) return alert("Error: Card missing");
+      const isManual = card.source === 'manual';
+      const isWidget = card.type === 'generic-sheet';
+
+      if (!isManual && !isWidget) return alert("This system card cannot be deleted.");
       if(!confirm("Delete this card permanently?")) return; 
-      const { error } = await supabase.from('Weeks').delete().eq('id', id); 
+
+      let error;
+      if (isManual) {
+          const res = await supabase.from('Weeks').delete().eq('id', card.id);
+          error = res.error;
+      } else if (isWidget) {
+          const res = await supabase.from('widgets').delete().eq('id', card.id);
+          error = res.error;
+      }
+
       if (error) { alert("Error: " + error.message); } else { window.location.reload(); }
   };
   
-  const addNewCard = async () => { 
+  const addNewCard = async (sectionName: string) => { 
       const newOrder = manualCards.length; 
       const defaultResources = [{ title: "General Files", items: [] }];
-      const { data } = await supabase.from('Weeks').insert([{ title: "New Resource Hub", date_label: "", resources: defaultResources, color: "green", sort_order: newOrder, dashboard_id: dashboardId }]).select(); 
+      // Store the section name in the 'settings' JSON so we know where to put it
+      const settings = { category: sectionName };
+      
+      const { data } = await supabase.from('Weeks').insert([{ title: "New Resource Hub", date_label: "", resources: defaultResources, color: "green", sort_order: newOrder, dashboard_id: dashboardId, settings: settings }]).select(); 
       if (data) { const newCard = { ...data[0], source: 'manual' }; setManualCards([...manualCards, newCard]); setActiveCard(newCard); setIsEditing(true); } 
   };
 
-  const handleDragEnd = async (event: any) => { const { active, over } = event; if (active.id !== over.id) { setManualCards((items) => { const oldIndex = items.findIndex((item) => item.id === active.id); const newIndex = items.findIndex((item) => item.id === over.id); const newOrder = arrayMove(items, oldIndex, newIndex); saveNewOrder(newOrder); return newOrder; }); } };
-  const saveNewOrder = async (items: any[]) => { const updates = items.map((card, index) => ({ id: card.id, sort_order: index })); for (const item of updates) { await supabase.from('Weeks').update({ sort_order: item.sort_order }).eq('id', item.id); } };
+  // 🟢 DRAG & DROP LOGIC (Handles moving between sections)
+  const handleDragStart = (event: any) => { setActiveDragItem(event.active.data.current); };
+
+  const handleDragEnd = async (event: any) => { 
+    const { active, over } = event; 
+    setActiveDragItem(null);
+    if (!over) return;
+
+    // 1. Identify Source and Dest Cards
+    const activeId = active.id;
+    const overId = over.id;
+
+    // 2. Find the cards in our state
+    const allItems = [...manualCards, ...genericWidgets];
+    const activeItem = allItems.find(i => i.id === activeId);
+    
+    // If dropped on a container (Section Header), move it to that section
+    if (sections.includes(overId)) {
+        if (activeItem) {
+            updateCardCategory(activeItem, overId);
+        }
+        return;
+    }
+
+    // If dropped on another card
+    if (activeId !== overId) {
+        // Just reorder within the same list for now (simple impl)
+        setManualCards((items) => { 
+            const oldIndex = items.findIndex((item) => item.id === activeId); 
+            const newIndex = items.findIndex((item) => item.id === overId); 
+            return arrayMove(items, oldIndex, newIndex); 
+        });
+        
+        // If we dragged onto a card in a DIFFERENT section, update category
+        const overItem = allItems.find(i => i.id === overId);
+        if (activeItem && overItem) {
+            const activeCat = activeItem.settings?.category || sections[0];
+            const overCat = overItem.settings?.category || sections[0];
+            if (activeCat !== overCat) {
+                updateCardCategory(activeItem, overCat);
+            }
+        }
+    } 
+  };
+
+  const updateCardCategory = async (card: any, newCategory: string) => {
+      const newSettings = { ...card.settings, category: newCategory };
+      const updatedCard = { ...card, settings: newSettings };
+      
+      // Update State
+      if (card.type === 'generic-sheet') {
+          setGenericWidgets(prev => prev.map(w => w.id === card.id ? updatedCard : w));
+          await supabase.from('widgets').update({ settings: newSettings }).eq('id', card.id);
+      } else {
+          setManualCards(prev => prev.map(c => c.id === card.id ? updatedCard : c));
+          await supabase.from('Weeks').update({ settings: newSettings }).eq('id', card.id);
+      }
+  };
+
+  // 🟢 SECTION MANAGEMENT
+  const addSection = async () => {
+      const name = prompt("New Section Name:");
+      if (!name) return;
+      const newSections = [...sections, name];
+      setSections(newSections);
+      // Save to Dashboard Config
+      await supabase.from('dashboards').update({ settings: { ...config.settings, sections: newSections } }).eq('id', dashboardId);
+  };
   
+  const renameSection = async (oldName: string) => {
+      const newName = prompt("Rename Section:", oldName);
+      if (!newName || newName === oldName) return;
+      const newSections = sections.map(s => s === oldName ? newName : s);
+      setSections(newSections);
+      await supabase.from('dashboards').update({ settings: { ...config.settings, sections: newSections } }).eq('id', dashboardId);
+      // We visually update immediately, but cards linked to the old name might need updating in a real app
+      // For now, we will just update the section list.
+  };
+
   // Helpers
   const doesCardMatch = (card: any) => { if(!searchQuery) return true; return JSON.stringify(card).toLowerCase().includes(searchQuery.toLowerCase()); };
   const updateColor = async (newColor: string) => { if (!activeCard || !activeCard.source?.includes("manual")) return; const updatedCard = { ...activeCard, color: newColor }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ color: newColor }).eq('id', activeCard.id); };
@@ -242,18 +302,9 @@ export default function DynamicDashboard() {
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   
-  // 🟢 OPEN MODAL (Enhanced to auto-load connected sheets)
   const setActiveModal = (card: any) => { 
-      if (isEditing && activeCard) handleSave(); 
-      setIsEditing(false); setIsMapping(false); 
-      
-      // If card was previously connected to a sheet, load data immediately
-      if (card && card.settings?.connectedSheet && !card.data) {
-          // Temporarily set active with loading state if desired, but here we just load
-          loadSheetData(card.settings.connectedSheet, card);
-      } else {
-          setActiveCard(card); 
-      }
+      if (isEditing && activeCard) handleSave(); setIsEditing(false); setIsMapping(false); 
+      if (card && card.settings?.connectedSheet && !card.data) { loadSheetData(card.settings.connectedSheet, card); } else { setActiveCard(card); }
       setShowDocPreview(null); 
   };
   const toggleEditMode = () => { if(isEditing) handleSave(); setIsEditing(!isEditing); }
@@ -262,23 +313,14 @@ export default function DynamicDashboard() {
   const getEmbedUrl = (url: string) => { if(url.includes("/document/d/")) return url.replace("/edit", "/preview"); if(url.includes("/spreadsheets/d/")) return url.replace("/edit", "/preview"); if(url.includes("/presentation/d/")) return url.replace("/edit", "/preview"); return url; };
   const getFileIcon = (item: any) => { if (item.iconUrl) return <img src={item.iconUrl} className="w-5 h-5" alt="icon" />; const title = item.title.toLowerCase(); let iconClass = "fas fa-link text-slate-400"; if (title.includes("calendar")) iconClass = "fas fa-calendar-alt text-emerald-500"; else if (title.includes("plan") || title.includes("strategy")) iconClass = "fas fa-map text-blue-500"; else if (title.includes("offering")) iconClass = "fas fa-hand-holding-heart text-green-500"; else if (isGoogleDoc(item.url)) iconClass = "fab fa-google-drive text-slate-500"; return <i className={`${iconClass} text-lg`}></i>; };
   const isCardEditable = (card: any) => card && card.source === 'manual';
-
-  // 🟢 FIND ATTACHED SHEET
-  const findAttachedSheet = () => {
-      if (!activeCard?.resources) return null;
-      // Look through all blocks and items for a spreadsheet link
-      for (const block of activeCard.resources) {
-          const sheet = block.items?.find((i:any) => i.url.includes('spreadsheets'));
-          if (sheet) return sheet.url;
-      }
-      return null;
-  };
+  
+  const findAttachedSheet = () => { if (!activeCard?.resources) return null; for (const block of activeCard.resources) { const sheet = block.items?.find((i:any) => i.url.includes('spreadsheets')); if (sheet) return sheet.url; } return null; };
   const attachedSheetUrl = findAttachedSheet();
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
 
   return (
-    <div className="pb-20 min-h-screen">
+    <div className="pb-20 min-h-screen bg-slate-50/50">
       <nav className="bg-slate-900 text-white sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
@@ -291,7 +333,7 @@ export default function DynamicDashboard() {
             <div className="flex items-center gap-4">
                 <button onClick={() => { if (!config?.share_token) return alert("Error: No token."); const link = `${window.location.origin}/join/${config.share_token}`; navigator.clipboard.writeText(link); alert("Invite Link Copied!"); }} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"><i className="fas fa-user-plus"></i><span>Invite</span></button>
                 <div className="relative"><i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i><input type="text" placeholder="find a document..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"/></div>
-                <button onClick={addNewCard} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-colors shadow-sm"><i className="fas fa-plus"></i><span>New Card</span></button>
+                <button onClick={() => addNewCard(sections[0])} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-colors shadow-sm"><i className="fas fa-plus"></i><span>New Card</span></button>
                 <button onClick={() => setShowTutorial(true)} className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"><i className="fas fa-question text-sm"></i></button>
                 <div className="h-6 w-px bg-slate-700 mx-1"></div> 
                 <SignOutButton />
@@ -300,54 +342,102 @@ export default function DynamicDashboard() {
         </div>
       </nav>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* SCHEDULE */}
-        {scheduleCards.some(doesCardMatch) && (
-            <div><div className="flex items-center gap-2 mb-2 text-slate-400 text-xs font-bold uppercase tracking-wider"><i className="fas fa-calendar-alt"></i> Weekly Schedule</div><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{scheduleCards.filter(doesCardMatch).map((card) => (<div key={card.id} onClick={() => setActiveModal(card)} className={`cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-4 text-white flex flex-row items-center text-left h-24 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}><div className="bg-white/20 h-12 w-12 rounded-full flex items-center justify-center mr-4 shrink-0 backdrop-blur-sm"><i className="fas fa-calendar-alt text-xl"></i></div><div><h4 className="font-bold text-lg leading-tight">{card.title}</h4><div className="text-xs font-medium opacity-80 mt-1">{card.date_label}</div></div></div>))}</div></div>
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+        {/* 1. WEEKLY SCHEDULE (FIXED SECTION) */}
+        {scheduleCards.length > 0 && (
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1">
+                    <i className="fas fa-calendar-alt"></i> Weekly Schedule
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {scheduleCards.filter(doesCardMatch).map((card) => (
+                        <div key={card.id} onClick={() => setActiveModal(card)} className={`cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-4 text-white flex flex-row items-center text-left h-24 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
+                            <div className="bg-white/20 h-12 w-12 rounded-full flex items-center justify-center mr-4 shrink-0 backdrop-blur-sm"><i className="fas fa-calendar-alt text-xl"></i></div>
+                            <div><h4 className="font-bold text-lg leading-tight">{card.title}</h4><div className="text-xs font-medium opacity-80 mt-1">{card.date_label}</div></div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* MISSIONS & WIDGETS */}
-            <div className="lg:col-span-1 space-y-6">
-                 {missionCard && doesCardMatch(missionCard) && (<div><div className="flex items-center gap-2 mb-2 text-slate-400 text-xs font-bold uppercase tracking-wider"><i className="fas fa-plane-departure"></i> Missions</div><div onClick={() => setActiveModal(missionCard)} className={`cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}><div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className="fas fa-globe-americas text-2xl"></i></div><h4 className="font-bold text-lg tracking-wide">{missionCard.title}</h4><div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div></div></div>)}
-                 
-                 {genericWidgets.map((widget) => (
-                    <div key={widget.id}>
-                        <div onClick={() => setActiveModal(widget)} className={`cursor-pointer hover:-translate-y-1 hover:shadow-lg rounded-xl p-0 relative overflow-hidden group transition-all bg-white border border-slate-200 h-40 flex flex-col`}>
-                            <div className={`h-2 w-full shrink-0 ${getBgColor(widget.color || 'blue').replace('bg-', 'bg-')}`}></div>
-                            <div className="p-5 flex flex-col h-full">
-                                <div className="flex items-start justify-between mb-2">
-                                    <div className={`p-2 rounded-lg bg-slate-50 text-slate-400 group-hover:text-white group-hover:${getBgColor(widget.color || 'blue')} transition-colors`}>
-                                        <i className={`fas ${widget.settings?.viewMode === 'card' ? 'fa-th-large' : 'fa-table'} text-lg`}></i>
-                                    </div>
-                                    <div className="text-[10px] font-bold text-slate-300 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded">Sheet</div>
-                                </div>
-                                <div className="mt-auto pb-2">
-                                    <h4 className="font-bold text-lg text-slate-800 leading-tight group-hover:text-blue-600 transition-colors line-clamp-1">
-                                        {widget.title}
-                                    </h4>
-                                    <div className="text-xs text-slate-400 font-medium mt-1">
-                                        {widget.rowCount || 0} records
-                                    </div>
-                                </div>
+        {/* 2. MISSIONS (FIXED SECTION) */}
+        {missionCard && (
+            <div className="space-y-4">
+                 <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1">
+                    <i className="fas fa-plane-departure"></i> Missions
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                     <div onClick={() => setActiveModal(missionCard)} className={`md:col-span-1 cursor-pointer hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}>
+                        <div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className="fas fa-globe-americas text-2xl"></i></div>
+                        <h4 className="font-bold text-lg tracking-wide">{missionCard.title}</h4>
+                        <div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div>
+                     </div>
+                </div>
+            </div>
+        )}
+
+        {/* 3. DYNAMIC CUSTOM SECTIONS (DRAGGABLE) */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            {sections.map((section) => {
+                // Filter cards that belong to this section
+                const sectionCards = [...manualCards, ...genericWidgets].filter(c => {
+                    const cat = c.settings?.category || sections[0]; // Default to first section if undefined
+                    return cat === section;
+                }).filter(doesCardMatch);
+
+                return (
+                    <div key={section} className="space-y-4 animate-in fade-in duration-500">
+                        {/* SECTION HEADER */}
+                        <div className="flex items-center justify-between group">
+                            <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(section)}>
+                                <i className="fas fa-layer-group"></i> {section} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
                             </div>
+                            <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">
+                                + Add Card
+                            </button>
                         </div>
+                        
+                        {/* DROP ZONE */}
+                        <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-slate-200/50 p-2 transition-colors hover:border-blue-200/50">
+                                {sectionCards.map((card) => (
+                                    card.type === 'generic-sheet' ? (
+                                        // WIDGET RENDER
+                                        <div key={card.id} className="relative">
+                                            <SortableCard card={card} onClick={setActiveModal} getBgColor={getBgColor} />
+                                            {/* Overlay specific styling for widgets if needed, but SortableCard handles basic structure */}
+                                        </div>
+                                    ) : (
+                                        // MANUAL CARD RENDER
+                                        <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} />
+                                    )
+                                ))}
+                                {sectionCards.length === 0 && (
+                                    <div className="col-span-full flex items-center justify-center text-slate-300 text-sm font-medium italic h-24">
+                                        Drop cards here
+                                    </div>
+                                )}
+                            </div>
+                        </SortableContext>
                     </div>
-                 ))}
-            </div>
-            
-            {/* MANUAL */}
-            <div className="lg:col-span-2">
-                <div className="flex items-center gap-2 mb-2 text-slate-400 text-xs font-bold uppercase tracking-wider"><i className="fas fa-layer-group"></i> Planning & Resources</div>
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                    <SortableContext items={manualCards.filter(doesCardMatch)} strategy={rectSortingStrategy}>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {manualCards.filter(doesCardMatch).map((card) => (<SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} />))}
-                        </div>
-                    </SortableContext>
-                </DndContext>
-            </div>
+                );
+            })}
+             <DragOverlay>
+                {activeDragItem ? (
+                     <div className={`rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 shadow-2xl scale-105 ${getBgColor(activeDragItem.color || 'rose')}`}>
+                        <h4 className="font-bold text-xl tracking-wide">{activeDragItem.title}</h4>
+                    </div>
+                ) : null}
+            </DragOverlay>
+        </DndContext>
+
+        {/* ADD NEW SECTION BUTTON */}
+        <div className="pt-8 border-t border-slate-200 text-center">
+            <button onClick={addSection} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors">
+                <i className="fas fa-plus"></i> Add New Section
+            </button>
         </div>
+
       </main>
 
       {/* --- MODAL --- */}
@@ -380,7 +470,7 @@ export default function DynamicDashboard() {
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                 {/* 🟢 VISUAL MAPPER BUTTON (NOW SHOWS IF SHEET IS ATTACHED) */}
+                 {/* 🟢 VISUAL MAPPER BUTTON */}
                  {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                     <button 
                       onClick={() => {
@@ -401,7 +491,16 @@ export default function DynamicDashboard() {
                     <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
                  )}
                  {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
-                 {isEditing && !showDocPreview && isCardEditable(activeCard) && (<button onClick={() => deleteCard(activeCard.id)} className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors"><i className="fas fa-trash"></i></button>)}
+                 {/* 🔴 FIXED DELETE BUTTON */}
+                 {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && (
+                  <button 
+                    onClick={() => deleteCard(activeCard)} 
+                    className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
+                    title="Delete Card"
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
+                )}
                  {showDocPreview && <button onClick={() => setShowDocPreview(null)} className="bg-white/20 px-3 py-1 rounded text-sm font-medium"><i className="fas fa-arrow-left mr-2"></i> Back</button>}
                  <button onClick={() => setActiveModal(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><i className="fas fa-times text-xl"></i></button>
               </div>
@@ -519,7 +618,6 @@ export default function DynamicDashboard() {
                                      ))}
                                      <button onClick={() => {
                                          const current = activeCard.settings.extraFields || [];
-                                         // Pick first column as default
                                          const defaultCol = activeCard.columns?.[0] || "";
                                          setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: [...current, defaultCol]}});
                                      }} className="text-xs font-bold text-blue-600 hover:underline">+ Add Field</button>
@@ -554,7 +652,6 @@ export default function DynamicDashboard() {
                                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xl scale-110 origin-center">
                                   <div className="flex justify-between items-start mb-4">
                                       <div>
-                                        {/* REQUEST #1: LABEL HEADER */}
                                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{activeCard.settings?.titleCol || "Select Title"}</div>
                                         <h4 className="font-bold text-xl text-slate-800 line-clamp-2">
                                             {activeCard.data[0]?.[activeCard.settings?.titleCol] || "Sample Value"}
