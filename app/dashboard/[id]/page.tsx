@@ -74,6 +74,20 @@ export default function DynamicDashboard() {
   const newItemTitleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // 🟢 HELPER: Fetch single cell data
+const fetchLiveMetric = async (sheetUrl: string, cell: string) => {
+  try {
+    const res = await fetch('/api/sheet-cell', {
+      method: 'POST',
+      body: JSON.stringify({ sheetUrl, cell }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    return data.value;
+  } catch (e) {
+    return "Err";
+  }
+};
   // 🟢 FETCH EVERYTHING
   useEffect(() => {
     if(!dashboardId) return;
@@ -89,7 +103,37 @@ export default function DynamicDashboard() {
     };
     initDashboard();
   }, [dashboardId]);
+// 🟢 REFRESH KPIS ON LOAD
+useEffect(() => {
+  if (manualCards.length === 0) return;
+  
+  const refreshMetrics = async () => {
+    // Loop through cards, check for settings.metrics
+    const updates = manualCards.map(async (card) => {
+      if (card.settings?.metrics?.length > 0) {
+        let hasChanges = false;
+        const newMetrics = await Promise.all(card.settings.metrics.map(async (m: any) => {
+          // Re-fetch the value
+          const freshVal = await fetchLiveMetric(m.url, m.cell);
+          if (freshVal !== m.value) hasChanges = true;
+          return { ...m, value: freshVal };
+        }));
 
+        if (hasChanges) {
+          // Update local state (no need to spam DB, just show fresh data)
+          return { ...card, settings: { ...card.settings, metrics: newMetrics } };
+        }
+      }
+      return card;
+    });
+
+    const results = await Promise.all(updates);
+    // Only update state if distinct
+    setManualCards(results); 
+  };
+  
+  refreshMetrics();
+}, [dashboardId]); // Or run on an interval
   // 🟢 FETCH GENERIC WIDGETS
   const fetchGenericWidgets = async () => {
     const { data: widgets } = await supabase.from('widgets').select('*').eq('dashboard_id', dashboardId);
@@ -348,6 +392,67 @@ export default function DynamicDashboard() {
                          title={`Change to ${c}`}
                        />
                      ))}
+                     {/* 📊 LIVE KPI SECTION */}
+<div className="mt-4 flex flex-wrap gap-3">
+  {/* Render Existing Metrics */}
+  {activeCard.settings?.metrics?.map((metric: any, idx: number) => (
+    <div key={idx} className="bg-white/20 backdrop-blur-md px-3 py-2 rounded-lg text-white flex flex-col min-w-[100px] relative group border border-white/10">
+      <span className="text-[10px] uppercase font-bold opacity-75 tracking-wider">{metric.label}</span>
+      <span className="text-xl font-bold font-mono leading-none mt-1">
+        {metric.value || "-"} 
+        {/* We store the fetched value in state, or fetch on load */}
+      </span>
+      
+      {isEditing && (
+        <button 
+          onClick={async (e) => {
+            e.stopPropagation();
+            if(!confirm("Remove metric?")) return;
+            const newMetrics = activeCard.settings.metrics.filter((_:any, i:number) => i !== idx);
+            const newSettings = { ...activeCard.settings, metrics: newMetrics };
+            // Save to DB
+            const updated = { ...activeCard, settings: newSettings };
+            setActiveCard(updated);
+            setManualCards(prev => prev.map(c => c.id === activeCard.id ? updated : c));
+            await supabase.from('Weeks').update({ settings: newSettings }).eq('id', activeCard.id);
+          }}
+          className="absolute -top-2 -right-2 bg-red-500 text-white w-5 h-5 rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <i className="fas fa-times"></i>
+        </button>
+      )}
+    </div>
+  ))}
+
+  {/* Add New Metric Button (Only in Edit Mode) */}
+  {isEditing && (
+    <button 
+      onClick={async () => {
+        const url = prompt("Paste Google Sheet URL:");
+        if (!url) return;
+        const cell = prompt("Enter Cell (e.g., B2 or 'Summary!C5'):");
+        if (!cell) return;
+        const label = prompt("Label (e.g., Total Budget):");
+        
+        // 1. Fetch initial value immediately
+        const val = await fetchLiveMetric(url, cell);
+        
+        // 2. Save to State & DB
+        const newMetric = { url, cell, label, value: val };
+        const currentMetrics = activeCard.settings?.metrics || [];
+        const newSettings = { ...activeCard.settings, metrics: [...currentMetrics, newMetric] };
+        
+        const updated = { ...activeCard, settings: newSettings };
+        setActiveCard(updated);
+        setManualCards(prev => prev.map(c => c.id === activeCard.id ? updated : c));
+        await supabase.from('Weeks').update({ settings: newSettings }).eq('id', activeCard.id);
+      }}
+      className="px-3 py-2 rounded-lg border-2 border-dashed border-white/40 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all"
+    >
+      <i className="fas fa-plus"></i> Add KPI
+    </button>
+  )}
+</div>
                    </div>
                  )}
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
