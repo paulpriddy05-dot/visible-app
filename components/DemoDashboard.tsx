@@ -27,6 +27,7 @@ const METRICS_DATA = {
 export default function DemoDashboard() {
   const [activeCard, setActiveCard] = useState<any>(null);
 
+  // Helper for safe dynamic Tailwind bg classes
   const getBgColor = (color: string) => {
     const map: Record<string, string> = {
       blue: "bg-blue-600",
@@ -195,21 +196,21 @@ export default function DemoDashboard() {
 
             {/* Modal Content */}
             <div className="p-8 bg-slate-50 min-h-[300px]">
-              {activeCard.type === "metrics" ? (
+              {(activeCard as any).type === "metrics" ? (
                 <div className="space-y-6">
                   <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
                     <div>
                       <div className="text-xs font-bold text-slate-400 uppercase">Current Revenue</div>
-                      <div className="text-4xl font-bold text-slate-800">{activeCard.primary}</div>
+                      <div className="text-4xl font-bold text-slate-800">{(activeCard as any).primary}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                        {activeCard.sub}
+                        {(activeCard as any).sub}
                       </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    {activeCard.breakdown.map((b) => (
+                    {(activeCard as any).breakdown.map((b: any) => (
                       <div key={b.label} className="bg-white p-4 rounded-xl border border-slate-200">
                         <div className="text-xs text-slate-400 font-bold uppercase">{b.label}</div>
                         <div className="text-xl font-bold text-slate-700">{b.val}</div>
