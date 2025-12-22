@@ -50,7 +50,6 @@ const renderCellContent = (content: string) => {
 function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, data: { ...card } });
   
-  // Icon Logic
   const userIcon = card.settings?.icon;
   let defaultIcon = "fa-folder-open";
   if (variant === 'horizontal') defaultIcon = "fa-calendar-alt";
@@ -95,7 +94,6 @@ export default function DynamicDashboard() {
   const params = useParams();
   const dashboardId = params.id as string;
   
-  // State
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [scheduleCards, setScheduleCards] = useState<any[]>([]); 
@@ -106,7 +104,6 @@ export default function DynamicDashboard() {
   const [scheduleTitle, setScheduleTitle] = useState("Weekly Schedule");
   const [missionsTitle, setMissionsTitle] = useState("Missions");
 
-  // UI State
   const [activeCard, setActiveCard] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isMapping, setIsMapping] = useState(false); 
@@ -229,54 +226,9 @@ export default function DynamicDashboard() {
   const addNewCard = async (sectionName: string) => { 
       const newOrder = manualCards.length; 
       const defaultResources = [{ title: "General Files", items: [] }];
-      
-      // Default to "Planning" if sectionName is missing
-      const safeCategory = sectionName || (sections.length > 0 ? sections[0] : "Planning");
-      
-      const payload: any = { 
-          title: "New Resource Hub", 
-          date_label: "", 
-          resources: defaultResources, 
-          color: "green", 
-          sort_order: newOrder, 
-          dashboard_id: dashboardId,
-          settings: { category: safeCategory, icon: "fa-folder-open" } 
-      };
-
-      // 1. Try to insert
-      const { data, error } = await supabase.from('Weeks').insert([payload]).select(); 
-      
-      // 2. Handle Error
-      if (error) {
-          console.error("Supabase Error:", error);
-          
-          // ⚠️ FALLBACK: If the error is about the 'settings' column missing, try again without it
-          if (error.message.includes('column "settings" of relation "Weeks" does not exist')) {
-              alert("Database Update Needed: Your 'Weeks' table is missing the 'settings' column. I will try to add a basic card, but Icons/Categories won't save until you update the database.");
-              
-              // Retry without settings
-              delete payload.settings;
-              const retry = await supabase.from('Weeks').insert([payload]).select();
-              if (retry.data) {
-                  const newCard = { ...retry.data[0], source: 'manual' }; 
-                  setManualCards([...manualCards, newCard]); 
-                  setActiveCard(newCard); 
-                  setIsEditing(true);
-                  return;
-              }
-          }
-          
-          alert("Error adding card: " + error.message);
-          return;
-      }
-
-      // 3. Success
-      if (data) { 
-          const newCard = { ...data[0], source: 'manual' }; 
-          setManualCards([...manualCards, newCard]); 
-          setActiveCard(newCard); 
-          setIsEditing(true); 
-      } 
+      const settings = { category: sectionName };
+      const { data } = await supabase.from('Weeks').insert([{ title: "New Resource Hub", date_label: "", resources: defaultResources, color: "green", sort_order: newOrder, dashboard_id: dashboardId, settings: settings }]).select(); 
+      if (data) { const newCard = { ...data[0], source: 'manual' }; setManualCards([...manualCards, newCard]); setActiveCard(newCard); setIsEditing(true); } 
   };
 
   const updateIcon = async (newIcon: string) => {
@@ -560,6 +512,20 @@ export default function DynamicDashboard() {
                   <div className="p-0 bg-slate-50 min-h-full">
                       <div className="bg-sky-50 p-8 border-b border-sky-100 flex flex-col md:flex-row justify-between items-center gap-6"><div><div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-1">Upcoming Departure</div><h2 className="text-3xl font-bold text-slate-800 mb-1">{activeCard.upcomingLoc} Team</h2><div className="flex items-center gap-2 text-slate-500"><i className="far fa-calendar-alt"></i> {activeCard.upcomingDate}</div></div><div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-sky-100 text-center min-w-[120px]"><div className="text-4xl font-bold text-sky-600">{activeCard.upcomingOpen}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Open Spots</div></div></div>
                       <div className="p-8"><div className="flex items-center gap-2 mb-4"><i className="fas fa-ticket-alt text-slate-400"></i><h4 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Open Registrations</h4></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{activeCard.trips.map((trip: any, idx: number) => (<div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm"><div><div className="font-bold text-slate-800 text-lg">{trip.name}</div><div className="text-xs text-slate-400 mt-1">Registration Open</div></div><div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{trip.spots} Spots</div></div>))}</div></div>
+                      {/* 🟢 RESTORED: 2026 Statistics (Staff vs Non-Staff) */}
+                      <div className="bg-white p-8 border-t border-slate-200">
+                          <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-6">2026 Statistics</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                              <div>
+                                  <div className="flex items-end gap-3 mb-2"><span className="text-4xl font-bold text-slate-800">{activeCard.totalNonStaff}</span><span className="text-sm text-slate-500 mb-1">Non-Staff ({activeCard.percentNonStaff})</span></div>
+                                  <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-cyan-500 h-2 rounded-full" style={{ width: activeCard.percentNonStaff }}></div></div>
+                              </div>
+                              <div>
+                                  <div className="flex items-end gap-3 mb-2"><span className="text-4xl font-bold text-slate-800">{activeCard.totalStaff}</span><span className="text-sm text-slate-500 mb-1">Staff ({activeCard.percentStaff})</span></div>
+                                  <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: activeCard.percentStaff }}></div></div>
+                              </div>
+                          </div>
+                      </div>
                   </div>
               ) : activeCard.source?.includes("sheet") ? (
                 <div className="p-8 space-y-8">
