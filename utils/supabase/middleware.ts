@@ -45,9 +45,9 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-// 3. REDIRECT IF LOGGED IN
-  // If user IS logged in and tries to visit landing page OR login page, send to dashboard
-  if ((request.nextUrl.pathname === "/" || request.nextUrl.pathname === "/login") && user) {
+  // 3. PUBLIC ROUTE LOGIC
+  // If user IS logged in and is sitting on the Login page (/), kick them to Dashboard
+  if (request.nextUrl.pathname === "/" && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

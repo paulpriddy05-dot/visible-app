@@ -1,18 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase"; // Use your singleton if available, or createBrowserClient
+import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function UpdatePasswordPage() {
-  const router = useRouter();
-  
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const router = useRouter();
+
+  // Your original client logic
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,30 +25,22 @@ export default function UpdatePasswordPage() {
     setMessage("");
     setErrorMsg("");
 
-    // 1. Validation
+    // 1. Check if passwords match
     if (password !== confirmPassword) {
-      setErrorMsg("Passwords do not match");
+      setErrorMsg("Error: Passwords do not match");
       setLoading(false);
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMsg("Password must be at least 6 characters");
-      setLoading(false);
-      return;
-    }
-
-    // 2. Update Password via Supabase
+    // 2. Update password
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setErrorMsg(error.message);
+      setErrorMsg("Error: " + error.message);
       setLoading(false);
     } else {
-      // 3. Success - Refresh session to ensure cookies are set correctly
       await supabase.auth.refreshSession();
-      setMessage("Success! Redirecting to dashboard...");
-      
+      setMessage("Success! Redirecting...");
       setTimeout(() => {
         router.push("/dashboard");
         router.refresh();
@@ -54,7 +51,7 @@ export default function UpdatePasswordPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-sans relative overflow-hidden px-4">
       
-      {/* Background Decoration (Matching Login Page) */}
+      {/* Background Decoration (Matches Login) */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-7xl pointer-events-none">
           <div className="absolute top-20 left-10 w-96 h-96 bg-purple-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob"></div>
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-200 rounded-full mix-blend-multiply filter blur-3xl opacity-30 animate-blob animation-delay-2000"></div>
