@@ -56,8 +56,21 @@ const renderCellContent = (content: string) => {
 };
 
 // --- SUB-COMPONENT: Sortable Manual Card ---
+// --- SUB-COMPONENT: Sortable Manual Card ---
 function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: card.id, data: { ...card } });
+  // 🟢 PERFORMANCE FIX: We strictly exclude 'data' and 'resources' from the sortable context.
+  // This prevents dnd-kit from trying to serialize thousands of spreadsheet rows, 
+  // which causes the "disappearing title" glitch.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
+      id: card.id, 
+      data: { 
+          id: card.id, 
+          title: card.title,
+          settings: card.settings,
+          type: card.type 
+          // NOTICE: 'card.data' is intentionally omitted here
+      } 
+  });
   
   const userIcon = card.settings?.icon;
   let defaultIcon = "fa-folder-open";
@@ -67,15 +80,15 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
   
-  // 🟢 CHART PREVIEW ON DASHBOARD CARD
-  // If viewMode is 'chart', we show a tiny chart instead of the icon
+  // 🟢 CHART PREVIEW LOGIC
+  // We still use card.data for rendering the chart visually, just not for tracking movement.
   const showMiniChart = card.settings?.viewMode === 'chart' && card.data && card.settings?.yAxisCol;
 
   if (variant === 'mission') {
       return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}>
             <div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className={`fas ${displayIcon} text-2xl`}></i></div>
-            <h4 className="font-bold text-lg tracking-wide">{card.title}</h4>
+            <h4 className="font-bold text-lg tracking-wide">{card.title || "Untitled"}</h4>
             <div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div>
         </div>
       );
@@ -86,7 +99,7 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-4 text-white flex flex-row items-center text-left h-24 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
             <div className="bg-white/20 h-12 w-12 rounded-full flex items-center justify-center mr-4 shrink-0 backdrop-blur-sm"><i className={`fas ${displayIcon} text-xl`}></i></div>
             <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-lg leading-tight truncate">{card.title}</h4>
+                <h4 className="font-bold text-lg leading-tight truncate">{card.title || "Untitled"}</h4>
                 <div className="text-xs font-medium opacity-80 mt-1 truncate">{card.date_label || "No Date"}</div>
             </div>
         </div>
@@ -97,17 +110,27 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
         {showMiniChart ? (
              <div className="w-full h-full absolute inset-0 p-4 pt-10 opacity-90 pointer-events-none">
+                 {/* Mini Chart Render */}
                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={card.data.slice(0, 10)}>
-                        <Area type="monotone" dataKey={card.settings.yAxisCol} stroke="#fff" fill="rgba(255,255,255,0.3)" strokeWidth={2} />
+                    <AreaChart data={card.data.slice(0, 15)}>
+                        <Area 
+                            type="monotone" 
+                            dataKey={card.settings.yAxisCol} 
+                            stroke="#fff" 
+                            fill="rgba(255,255,255,0.3)" 
+                            strokeWidth={2} 
+                            isAnimationActive={false} // Disable animation for better performance
+                        />
                     </AreaChart>
                  </ResponsiveContainer>
-                 <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80">{card.title}</div>
+                 <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80 truncate px-4">
+                    {card.title || "Untitled"}
+                 </div>
              </div>
         ) : (
             <>
                 <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
-                <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title}</h4>
+                <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title || "Untitled"}</h4>
                 <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1"><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</div>
             </>
         )}
@@ -243,8 +266,13 @@ export default function DynamicDashboard() {
   };
 
   const saveMapping = async (newSettings: any) => {
+      // Create the updated card object
       const updatedCard = { ...activeCard, settings: newSettings };
+      
+      // Update the active card state immediately so the UI reflects changes
       setActiveCard(updatedCard);
+
+      // Update the correct list (Generic Widget vs Manual Card)
       if (activeCard.type === 'generic-sheet') {
           setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? updatedCard : w));
           await supabase.from('widgets').update({ settings: newSettings }).eq('id', activeCard.id);
@@ -252,6 +280,8 @@ export default function DynamicDashboard() {
           setManualCards(prev => prev.map(c => c.id === activeCard.id ? updatedCard : c));
           await supabase.from('Weeks').update({ settings: newSettings }).eq('id', activeCard.id);
       }
+      
+      // Close the mapping panel
       setIsMapping(false);
   };
 
