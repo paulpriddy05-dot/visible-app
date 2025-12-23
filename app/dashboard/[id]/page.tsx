@@ -446,7 +446,7 @@ export default function DynamicDashboard() {
                     <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
                 </div>
                 <SortableContext items={weeklyScheduleItems} strategy={rectSortingStrategy} id="Weekly Schedule">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border border-slate-300/30 dark:border-zinc-700/50 p-2 transition-all hover:border-blue-300/50 dark:hover:border-blue-500/30">
                         {weeklyScheduleItems.filter(doesCardMatch).map((card) => (
                             <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} variant="horizontal" />
                         ))}
@@ -465,7 +465,7 @@ export default function DynamicDashboard() {
                         <button onClick={() => addNewCard("Missions")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
                     </div>
                     <SortableContext items={missionSectionItems} strategy={rectSortingStrategy} id="Missions">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border border-slate-300/30 dark:border-zinc-700/50 p-2 transition-all hover:border-blue-300/50 dark:hover:border-blue-500/30">
                             {missionSectionItems.filter(doesCardMatch).map((card) => (
                                 <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} variant={card.id === 'missions-status' ? 'mission' : 'vertical'} />
                             ))}
