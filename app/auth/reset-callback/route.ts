@@ -23,15 +23,16 @@ export async function GET(request: NextRequest) {
       }
     );
     
-    // 1. Exchange the code for a session (Log the user in)
+    // 1. Log the user in
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     
     if (!error) {
-      // 2. HARDCODED REDIRECT: Always go to update password
+      // 🟢 THE FIX: Force the redirect to /update-password
+      // Do not use 'next' param. Do not use '/dashboard'.
       return NextResponse.redirect(`${origin}/update-password`);
     }
   }
 
-  // If error, send to login
+  // If the code exchange failed, send them back to login
   return NextResponse.redirect(`${origin}/login?error=auth-code-error`);
 }
