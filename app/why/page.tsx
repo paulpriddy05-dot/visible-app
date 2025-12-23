@@ -94,10 +94,13 @@ export default function WhyPage() {
           <p className="text-lg text-slate-600 dark:text-zinc-400 max-w-xl mx-auto mb-10 leading-relaxed">
             Visible is the layer that sits on top of your chaos. It doesn't replace Google Drive; it curates it. It turns your storage unit into a studio.
           </p>
-          <Link href="/signup" className="inline-flex items-center gap-2 bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-8 py-4 rounded-xl font-bold text-lg hover:-translate-y-1 transition-transform shadow-lg hover:shadow-xl">
+          
+          {/* 🟢 UPDATED: Changed href from "/signup" to "/login" */}
+          <Link href="/login" className="inline-flex items-center gap-2 bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-8 py-4 rounded-xl font-bold text-lg hover:-translate-y-1 transition-transform shadow-lg hover:shadow-xl">
             <span>Build Your Dashboard</span>
             <i className="fas fa-arrow-right"></i>
           </Link>
+          
           <p className="mt-6 text-sm text-slate-400 dark:text-zinc-500">
             Free to start. No credit card required.
           </p>
