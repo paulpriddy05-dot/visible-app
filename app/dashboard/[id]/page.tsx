@@ -495,7 +495,7 @@ export default function DynamicDashboard() {
                             <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>
                         </div>
                         <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-slate-200/50 p-2 transition-colors hover:border-blue-200/50">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border border-slate-300/30 dark:border-zinc-700/50 p-2 transition-all hover:border-blue-300/50 dark:hover:border-blue-500/30">
                                 {sectionCards.map((card) => ( <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} /> ))}
                                 {sectionCards.length === 0 && ( <div className="col-span-full flex items-center justify-center text-slate-300 text-sm font-medium italic h-24">Drop cards here</div> )}
                             </div>
