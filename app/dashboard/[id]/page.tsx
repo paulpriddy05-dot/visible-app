@@ -415,6 +415,7 @@ export default function DynamicDashboard() {
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   
   const setActiveModal = (card: any) => { 
+        // 1. Closing the modal
         if (!card) {
             if (isEditing && activeCard) handleSave();
             setActiveCard(null);
@@ -425,21 +426,21 @@ export default function DynamicDashboard() {
             return;
         }
 
+        // 2. Opening a new card
         if (isEditing && activeCard) handleSave(); 
         setIsEditing(false); 
         setIsMapping(false); 
         setAddingLinkToBlock(null);
 
-        // 🟢 Reset viewMode to null so it opens as Files by default
-        const resetCard = { 
-            ...card, 
-            settings: { ...card?.settings, viewMode: null } 
-        };
+        // 🟢 CORRECTED: We use the card exactly as it is (respecting saved viewMode)
+        // instead of forcing it to null.
+        const cardToLoad = { ...card };
 
-        if (resetCard.settings?.connectedSheet && !resetCard.data) { 
-            loadSheetData(resetCard.settings.connectedSheet, resetCard); 
+        // 3. Load data if needed
+        if (cardToLoad.settings?.connectedSheet && !cardToLoad.data) { 
+            loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad); 
         } else { 
-            setActiveCard(resetCard); 
+            setActiveCard(cardToLoad); 
         }
         
         setShowDocPreview(null); 
