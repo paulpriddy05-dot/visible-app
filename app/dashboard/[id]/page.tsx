@@ -12,7 +12,12 @@ import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
 import DashboardChat from "@/components/DashboardChat";
 // 🟢 NEW IMPORTS FOR CHARTS
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
+import { 
+  BarChart, Bar, LineChart, Line, AreaChart, Area, 
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+  PieChart, Pie, Cell, Legend 
+} from 'recharts';
+const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6'];
 
 // 🔴 GOOGLE KEYS
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o"; // Make sure to use your env vars if possible
@@ -732,6 +737,9 @@ export default function DynamicDashboard() {
                                           <option value="bar">Bar Chart</option>
                                           <option value="line">Line Chart</option>
                                           <option value="area">Area Chart</option>
+                                          {/* 🟢 NEW OPTIONS */}
+                                          <option value="pie">Pie Chart</option>
+                                          <option value="donut">Donut Chart</option>
                                         </select>
                                      </div>
                                 </div>
@@ -810,10 +818,29 @@ export default function DynamicDashboard() {
                             
                             {/* 🟢 CHART RENDER LOGIC */}
                             {activeCard.settings?.viewMode === 'chart' ? (
-                                <div className="w-full h-96 bg-white p-6 rounded-xl border border-slate-200 shadow-xl">
+                                <div className="w-full h-96 bg-white p-6 rounded-xl border border-slate-200 shadow-xl flex flex-col">
                                     <h3 className="text-lg font-bold text-slate-800 mb-4 text-center">{activeCard.title}</h3>
+                                    <div className="flex-1 min-h-0">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        {activeCard.settings?.chartType === 'line' ? (
+                                        {activeCard.settings?.chartType === 'pie' || activeCard.settings?.chartType === 'donut' ? (
+                                           <PieChart>
+                                              <Pie
+                                                data={activeCard.data.map((d:any) => ({ name: d[activeCard.settings.xAxisCol], value: cleanNumber(d[activeCard.settings.yAxisCol]) }))}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={activeCard.settings?.chartType === 'donut' ? 60 : 0}
+                                                outerRadius={80}
+                                                paddingAngle={5}
+                                                dataKey="value"
+                                              >
+                                                {activeCard.data.map((entry:any, index:number) => (
+                                                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                                ))}
+                                              </Pie>
+                                              <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                                              <Legend verticalAlign="bottom" height={36} />
+                                           </PieChart>
+                                        ) : activeCard.settings?.chartType === 'line' ? (
                                             <LineChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                                 <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
@@ -839,6 +866,7 @@ export default function DynamicDashboard() {
                                             </BarChart>
                                         )}
                                     </ResponsiveContainer>
+                                    </div>
                                 </div>
                             ) : activeCard.settings?.viewMode === 'card' ? (
                               <div className="w-full max-w-md pointer-events-none select-none bg-white p-6 rounded-xl border border-slate-200 shadow-xl scale-110 origin-center">
