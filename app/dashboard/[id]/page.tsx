@@ -389,9 +389,27 @@ export default function DynamicDashboard() {
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   
-  const setActiveModal = (card: any) => { 
-      if (isEditing && activeCard) handleSave(); setIsEditing(false); setIsMapping(false); setAddingLinkToBlock(null);
-      if (card && card.settings?.connectedSheet && !card.data) { loadSheetData(card.settings.connectedSheet, card); } else { setActiveCard(card); }
+const setActiveModal = (card: any) => { 
+      // 1. Clean up previous states
+      if (isEditing && activeCard) handleSave(); 
+      setIsEditing(false); 
+      setIsMapping(false); 
+      setAddingLinkToBlock(null);
+
+      // 🟢 THE FIX: Force 'viewMode' to null every time a card opens.
+      // This ensures it ALWAYS starts on the "Files" view, not the Table/Grid.
+      const resetCard = { 
+        ...card, 
+        settings: { ...card?.settings, viewMode: null } 
+      };
+
+      // 2. Load data if needed, but start in "Default" view
+      if (resetCard.settings?.connectedSheet && !resetCard.data) { 
+          loadSheetData(resetCard.settings.connectedSheet, resetCard); 
+      } else { 
+          setActiveCard(resetCard); 
+      }
+      
       setShowDocPreview(null); 
   };
   const toggleEditMode = () => { if(isEditing) handleSave(); setIsEditing(!isEditing); }
