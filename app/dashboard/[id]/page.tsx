@@ -55,21 +55,15 @@ const renderCellContent = (content: string) => {
   return <span className="text-slate-700 font-medium">{content}</span>;
 };
 
-// --- SUB-COMPONENT: Sortable Manual Card ---
+// You'll need to import useMemo at the top of your file if it's not there yet:
+// import { useState, useEffect, useRef, useMemo } from "react";
+
 // --- SUB-COMPONENT: Sortable Manual Card ---
 function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
-  // 🟢 PERFORMANCE FIX: We strictly exclude 'data' and 'resources' from the sortable context.
-  // This prevents dnd-kit from trying to serialize thousands of spreadsheet rows, 
-  // which causes the "disappearing title" glitch.
+  // Performance: Exclude heavy data from dnd-kit tracking
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
       id: card.id, 
-      data: { 
-          id: card.id, 
-          title: card.title,
-          settings: card.settings,
-          type: card.type 
-          // NOTICE: 'card.data' is intentionally omitted here
-      } 
+      data: { id: card.id, title: card.title, settings: card.settings, type: card.type } 
   });
   
   const userIcon = card.settings?.icon;
@@ -81,8 +75,19 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
   
   // 🟢 CHART PREVIEW LOGIC
-  // We still use card.data for rendering the chart visually, just not for tracking movement.
   const showMiniChart = card.settings?.viewMode === 'chart' && card.data && card.settings?.yAxisCol;
+
+  // 🟢 NEW: Prepare clean, numeric data for the mini-chart
+  // We use useMemo so this only recalculates when the data changes, keeping drag-and-drop smooth.
+  const miniChartData = useMemo(() => {
+    if (!showMiniChart || !card.data) return [];
+    // Take the first 15 rows and clean the number format (e.g., "$1,200" -> 1200)
+    return card.data.slice(0, 15).map((d: any) => ({
+        ...d,
+        [card.settings.yAxisCol]: cleanNumber(d[card.settings.yAxisCol])
+    }));
+  }, [card.data, card.settings?.yAxisCol, showMiniChart]);
+
 
   if (variant === 'mission') {
       return (
@@ -106,20 +111,21 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
       );
   }
 
+  // Default Vertical Card
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
         {showMiniChart ? (
              <div className="w-full h-full absolute inset-0 p-4 pt-10 opacity-90 pointer-events-none">
-                 {/* Mini Chart Render */}
+                 {/* Mini Chart Render using CLEAN data */}
                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={card.data.slice(0, 15)}>
+                    <AreaChart data={miniChartData}>
                         <Area 
                             type="monotone" 
                             dataKey={card.settings.yAxisCol} 
                             stroke="#fff" 
                             fill="rgba(255,255,255,0.3)" 
                             strokeWidth={2} 
-                            isAnimationActive={false} // Disable animation for better performance
+                            isAnimationActive={false} // Disable animation for performance
                         />
                     </AreaChart>
                  </ResponsiveContainer>
@@ -128,6 +134,7 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
                  </div>
              </div>
         ) : (
+            /* Standard Icon View */
             <>
                 <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
                 <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title || "Untitled"}</h4>
