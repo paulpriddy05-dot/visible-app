@@ -18,7 +18,22 @@ export default function LandingPage() {
               Visible
             </span>
           </div>
+<nav className="...">
+  {/* ... Logo is here ... */}
+  
+  <div className="flex items-center gap-6">
+    {/* 🟢 NEW LINK HERE */}
+    <Link 
+      href="/why" 
+      className="text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors hidden md:block"
+    >
+      Our Story
+    </Link>
 
+    <Link href="/login" className="...">Log In</Link>
+    <Link href="/signup" className="...">Get Started</Link>
+  </div>
+</nav>
           <div className="flex items-center gap-4 sm:gap-6">
             <Link 
               href="/login" 
