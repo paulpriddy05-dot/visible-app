@@ -30,8 +30,6 @@ export default function LandingPage() {
       Our Story
     </Link>
 
-    <Link href="/login" className="...">Log In</Link>
-    <Link href="/signup" className="...">Get Started</Link>
   </div>
 </nav>
           <div className="flex items-center gap-4 sm:gap-6">

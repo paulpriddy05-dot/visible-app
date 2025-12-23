@@ -27,11 +27,11 @@ export default function WhyPage() {
         {/* 2. THE MANIFESTO */}
         <section className="mb-24">
           <h1 className="font-serif text-5xl md:text-7xl font-bold text-slate-900 dark:text-zinc-50 leading-[1.1] mb-8">
-            The internet became <br/>
-            <span className="text-slate-400 dark:text-zinc-600 italic">too noisy.</span>
+            See the files <br/>
+            <span className="text-slate-400 dark:text-zinc-600 italic">you need.</span>
           </h1>
           <p className="text-xl md:text-2xl text-slate-600 dark:text-zinc-400 leading-relaxed max-w-2xl">
-            We built Visible because our digital workspaces started to feel like cluttered junk drawers, not places of focus.
+            Searching is painful. We built Visible to turn scattered Google Drive links into a coherent, customizable dashboard—so you can finally see the work that matters.
           </p>
         </section>
 
