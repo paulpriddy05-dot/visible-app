@@ -390,20 +390,30 @@ export default function DynamicDashboard() {
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   
 const setActiveModal = (card: any) => { 
-      // 1. Clean up previous states
+      // 1. If we are closing the modal (card is null), just clear everything and exit.
+      if (!card) {
+          if (isEditing && activeCard) handleSave();
+          setActiveCard(null);
+          setIsEditing(false);
+          setIsMapping(false);
+          setAddingLinkToBlock(null);
+          setShowDocPreview(null);
+          return;
+      }
+
+      // 2. If opening a new card, reset previous states first
       if (isEditing && activeCard) handleSave(); 
       setIsEditing(false); 
       setIsMapping(false); 
       setAddingLinkToBlock(null);
 
-      // 🟢 THE FIX: Force 'viewMode' to null every time a card opens.
-      // This ensures it ALWAYS starts on the "Files" view, not the Table/Grid.
+      // 3. Force 'viewMode' to null so it always starts on the Files view
       const resetCard = { 
         ...card, 
         settings: { ...card?.settings, viewMode: null } 
       };
 
-      // 2. Load data if needed, but start in "Default" view
+      // 4. Load data if needed
       if (resetCard.settings?.connectedSheet && !resetCard.data) { 
           loadSheetData(resetCard.settings.connectedSheet, resetCard); 
       } else { 
