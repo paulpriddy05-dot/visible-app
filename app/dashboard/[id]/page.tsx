@@ -11,21 +11,17 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
 import DashboardChat from "@/components/DashboardChat";
+// 🟢 NEW IMPORTS FOR CHARTS
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
 // 🔴 GOOGLE KEYS
-const GOOGLE_API_KEY = "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o";
-const GOOGLE_CLIENT_ID = "1072792448216-g7c565rslebga1m964jbi86esu46k24r.apps.googleusercontent.com";
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o"; // Make sure to use your env vars if possible
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1072792448216-g7c565rslebga1m964jbi86esu46k24r.apps.googleusercontent.com";
 
 const COLOR_MAP: Record<string, string> = {
   rose: "bg-rose-600", blue: "bg-blue-600", green: "bg-emerald-600",
   grey: "bg-purple-600", orange: "bg-orange-600", teal: "bg-cyan-600", slate: "bg-slate-700",
 };
-
-const ICON_OPTIONS = [
-  "fa-folder-open", "fa-calendar-alt", "fa-music", "fa-book-open", 
-  "fa-users", "fa-hand-holding-heart", "fa-money-bill-wave", "fa-bullhorn", 
-  "fa-video", "fa-clipboard-list", "fa-lightbulb", "fa-praying-hands"
-];
 
 const toCSVUrl = (url: string) => {
   if (!url) return "";
@@ -33,6 +29,15 @@ const toCSVUrl = (url: string) => {
     return url.replace(/\/edit.*$/, '/export?format=csv');
   }
   return url;
+};
+
+// Helper to clean currency/text into numbers for charts
+const cleanNumber = (val: any) => {
+  if (typeof val === 'number') return val;
+  if (!val) return 0;
+  // Remove $, commas, and spaces
+  const clean = val.toString().replace(/[$,\s]/g, '');
+  return parseFloat(clean) || 0;
 };
 
 const renderCellContent = (content: string) => {
@@ -57,6 +62,10 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
   
+  // 🟢 CHART PREVIEW ON DASHBOARD CARD
+  // If viewMode is 'chart', we show a tiny chart instead of the icon
+  const showMiniChart = card.settings?.viewMode === 'chart' && card.data && card.settings?.yAxisCol;
+
   if (variant === 'mission') {
       return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}>
@@ -81,9 +90,22 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
-        <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
-        <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title}</h4>
-        <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1"><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</div>
+        {showMiniChart ? (
+             <div className="w-full h-full absolute inset-0 p-4 pt-10 opacity-90 pointer-events-none">
+                 <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={card.data.slice(0, 10)}>
+                        <Area type="monotone" dataKey={card.settings.yAxisCol} stroke="#fff" fill="rgba(255,255,255,0.3)" strokeWidth={2} />
+                    </AreaChart>
+                 </ResponsiveContainer>
+                 <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80">{card.title}</div>
+             </div>
+        ) : (
+            <>
+                <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
+                <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title}</h4>
+                <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1"><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</div>
+            </>
+        )}
     </div>
   );
 }
@@ -97,7 +119,7 @@ export default function DynamicDashboard() {
   const [loading, setLoading] = useState(true);
   const [scheduleCards, setScheduleCards] = useState<any[]>([]); 
   const [missionCard, setMissionCard] = useState<any | null>(null); 
-  const [manualCards, setManualCards] = useState<any[]>([]);      
+  const [manualCards, setManualCards] = useState<any[]>([]);       
   const [genericWidgets, setGenericWidgets] = useState<any[]>([]);
   const [sections, setSections] = useState<string[]>(["Planning & Resources"]); 
   
@@ -111,8 +133,6 @@ export default function DynamicDashboard() {
   const [showTutorial, setShowTutorial] = useState(false); 
   const [openPicker] = useDrivePicker();
   const [activeBlockIndex, setActiveBlockIndex] = useState<number | null>(null);
-  
-  // 🟢 NEW STATE FOR LINK TOGGLING
   const [addingLinkToBlock, setAddingLinkToBlock] = useState<number | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -150,6 +170,7 @@ export default function DynamicDashboard() {
             header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
             complete: (results: any) => {
                 const enrichedCard = { ...card, data: results.data, columns: results.meta.fields, rowCount: results.data.length, sheet_url: url, settings: { ...card.settings, connectedSheet: url } };
+                // If initializing inside modal, don't auto set viewmode here, let setActiveModal handle it
                 setActiveCard(enrichedCard);
                 setManualCards(prev => prev.map(c => c.id === card.id ? enrichedCard : c));
             }
@@ -381,7 +402,6 @@ export default function DynamicDashboard() {
       updateResources(currentBlocks); 
       titleInput.value = ""; 
       urlInput.value = ""; 
-      // 🟢 Close input after adding
       setAddingLinkToBlock(null);
   };
 
@@ -389,39 +409,37 @@ export default function DynamicDashboard() {
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   
-const setActiveModal = (card: any) => { 
-      // 1. If we are closing the modal (card is null), just clear everything and exit.
-      if (!card) {
-          if (isEditing && activeCard) handleSave();
-          setActiveCard(null);
-          setIsEditing(false);
-          setIsMapping(false);
-          setAddingLinkToBlock(null);
-          setShowDocPreview(null);
-          return;
-      }
+  const setActiveModal = (card: any) => { 
+        if (!card) {
+            if (isEditing && activeCard) handleSave();
+            setActiveCard(null);
+            setIsEditing(false);
+            setIsMapping(false);
+            setAddingLinkToBlock(null);
+            setShowDocPreview(null);
+            return;
+        }
 
-      // 2. If opening a new card, reset previous states first
-      if (isEditing && activeCard) handleSave(); 
-      setIsEditing(false); 
-      setIsMapping(false); 
-      setAddingLinkToBlock(null);
+        if (isEditing && activeCard) handleSave(); 
+        setIsEditing(false); 
+        setIsMapping(false); 
+        setAddingLinkToBlock(null);
 
-      // 3. Force 'viewMode' to null so it always starts on the Files view
-      const resetCard = { 
-        ...card, 
-        settings: { ...card?.settings, viewMode: null } 
-      };
+        // 🟢 Reset viewMode to null so it opens as Files by default
+        const resetCard = { 
+            ...card, 
+            settings: { ...card?.settings, viewMode: null } 
+        };
 
-      // 4. Load data if needed
-      if (resetCard.settings?.connectedSheet && !resetCard.data) { 
-          loadSheetData(resetCard.settings.connectedSheet, resetCard); 
-      } else { 
-          setActiveCard(resetCard); 
-      }
-      
-      setShowDocPreview(null); 
-  };
+        if (resetCard.settings?.connectedSheet && !resetCard.data) { 
+            loadSheetData(resetCard.settings.connectedSheet, resetCard); 
+        } else { 
+            setActiveCard(resetCard); 
+        }
+        
+        setShowDocPreview(null); 
+    };
+
   const toggleEditMode = () => { if(isEditing) handleSave(); setIsEditing(!isEditing); }
   const getBgColor = (c: string) => COLOR_MAP[c] || "bg-slate-700";
   const isGoogleDoc = (url: string) => url.includes("docs.google.com") || url.includes("drive.google.com");
@@ -438,7 +456,7 @@ const setActiveModal = (card: any) => {
   const missionSectionItems = [ missionCard, ...manualCards.filter(c => c.settings?.category === "Missions"), ...genericWidgets.filter(c => c.settings?.category === "Missions") ].filter(Boolean);
 
   return (
-    <div className="pb-20 min-h-screen bg-gray-50 dark:bg-zinc-900 text-slate-900 dark:text-zinc-100 transition-colors duration-300">
+    <div className="pb-20 min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300">
       <nav className="bg-slate-900 text-white sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
@@ -464,7 +482,7 @@ const setActiveModal = (card: any) => {
         
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             
-           {/* 1. WEEKLY SCHEDULE (Only show if data exists) */}
+           {/* 1. WEEKLY SCHEDULE */}
             {scheduleCards.length > 0 && (
             <div className="space-y-4">
                 <div className="flex items-center justify-between group">
@@ -474,7 +492,7 @@ const setActiveModal = (card: any) => {
                     <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
                 </div>
                 <SortableContext items={weeklyScheduleItems} strategy={rectSortingStrategy} id="Weekly Schedule">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border border-slate-300/30 dark:border-zinc-700/50 p-2 transition-all hover:border-blue-300/50 dark:hover:border-blue-500/30">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
                         {weeklyScheduleItems.filter(doesCardMatch).map((card) => (
                             <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} variant="horizontal" />
                         ))}
@@ -493,7 +511,7 @@ const setActiveModal = (card: any) => {
                         <button onClick={() => addNewCard("Missions")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
                     </div>
                     <SortableContext items={missionSectionItems} strategy={rectSortingStrategy} id="Missions">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border border-slate-300/30 dark:border-zinc-700/50 p-2 transition-all hover:border-blue-300/50 dark:hover:border-blue-500/30">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
                             {missionSectionItems.filter(doesCardMatch).map((card) => (
                                 <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} variant={card.id === 'missions-status' ? 'mission' : 'vertical'} />
                             ))}
@@ -523,7 +541,7 @@ const setActiveModal = (card: any) => {
                             <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>
                         </div>
                         <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border border-slate-300/30 dark:border-zinc-700/50 p-2 transition-all hover:border-blue-300/50 dark:hover:border-blue-500/30">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-slate-200/50 p-2 transition-colors hover:border-blue-200/50">
                                 {sectionCards.map((card) => ( <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} /> ))}
                                 {sectionCards.length === 0 && ( <div className="col-span-full flex items-center justify-center text-slate-300 text-sm font-medium italic h-24">Drop cards here</div> )}
                             </div>
@@ -575,44 +593,42 @@ const setActiveModal = (card: any) => {
                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                 {/* 🟢 FIXED: Toggle between Files and Visualization */}
+                 {/* 🟢 TOGGLE FILES / VISUALIZATION */}
                  {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                     <button 
                       onClick={() => {
-                          // 1. If currently visualizing, turn it OFF (go back to files)
                           if (activeCard.settings?.viewMode) {
+                              // If On, Turn Off
                               const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: null } };
                               setActiveCard(updated);
                           } 
-                          // 2. If NOT visualizing, turn it ON (and load data if needed)
                           else {
+                              // If Off, Turn On
                               if (attachedSheetUrl && !activeCard.data) {
                                   loadSheetData(attachedSheetUrl, activeCard);
                               }
-                              // Default to 'card' view if turning on for first time
                               const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } };
                               setActiveCard(updated);
                           }
                       }} 
                       className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode 
-                        ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200" // Grey "Back" button style
-                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse" // Purple "Action" button style
+                        ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200" 
+                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse" 
                       }`}
                     >
-                      <i className={`fas ${activeCard.settings?.viewMode ? 'fa-folder-open' : 'fa-magic'}`}></i> 
+                      <i className={`fas ${activeCard.settings?.viewMode ? 'fa-folder-open' : 'fa-chart-pie'}`}></i> 
                       {activeCard.settings?.viewMode ? "Back to Files" : "Visualize Data"}
                     </button>
                  )}
                  
-                 {/* 🟢 NEW: Configure Button (Only visible when visualizing) */}
                  {activeCard.settings?.viewMode && (
-                     <button 
+                      <button 
                         onClick={() => setIsMapping(true)}
                         className="px-3 py-1.5 rounded-lg text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
                         title="Configure View"
-                     >
-                        <i className="fas fa-sliders-h"></i>
-                     </button>
+                      >
+                         <i className="fas fa-sliders-h"></i>
+                      </button>
                  )}
                  {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
                     <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
@@ -634,7 +650,7 @@ const setActiveModal = (card: any) => {
             
             {/* Body */}
             <div className="p-0 overflow-y-auto custom-scroll flex flex-col h-full bg-slate-50">
-              {/* 🟢 FIXED: Only show data if viewMode is active OR it's a generic widget */}
+              {/* VISUALIZATION MODE */}
               {((activeCard.type === 'generic-sheet' || activeCard.data) && activeCard.settings?.viewMode) ? (
                   isMapping ? (
                       <div className="flex h-full">
@@ -645,7 +661,7 @@ const setActiveModal = (card: any) => {
                               <i className="fas fa-magic text-purple-500"></i> Configure View
                             </h2>
                             <p className="text-slate-500 text-xs mt-1">
-                              Map columns to the card. (Auto-CSV is enabled)
+                              Map columns to the card or chart.
                             </p>
                           </div>
                           
@@ -653,102 +669,125 @@ const setActiveModal = (card: any) => {
                             {/* View Mode Selector */}
                             <div>
                               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Display Style</label>
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid grid-cols-3 gap-2">
                                 <button 
-                                  onClick={() => {
-                                    const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'table' } };
-                                    setActiveCard(updated); 
-                                  }}
+                                  onClick={() => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, viewMode: 'table' } })}
                                   className={`p-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${activeCard.settings?.viewMode === 'table' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
                                 >
-                                  <i className="fas fa-table text-lg"></i> Table List
+                                  <i className="fas fa-table text-lg"></i> Table
                                 </button>
                                 <button 
-                                  onClick={() => {
-                                    const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } };
-                                    setActiveCard(updated);
-                                  }}
+                                  onClick={() => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } })}
                                   className={`p-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${activeCard.settings?.viewMode === 'card' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
                                 >
-                                  <i className="fas fa-th-large text-lg"></i> Card Grid
+                                  <i className="fas fa-th-large text-lg"></i> Cards
+                                </button>
+                                {/* 🟢 NEW CHART BUTTON */}
+                                <button 
+                                  onClick={() => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, viewMode: 'chart' } })}
+                                  className={`p-3 rounded-lg border text-sm font-medium flex flex-col items-center gap-2 transition-all ${activeCard.settings?.viewMode === 'chart' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 text-slate-500 hover:border-slate-300'}`}
+                                >
+                                  <i className="fas fa-chart-bar text-lg"></i> Chart
                                 </button>
                               </div>
                             </div>
 
                             <div className="h-px bg-slate-100 w-full my-2"></div>
 
-                            {/* Column Mappers */}
-                            <div className="space-y-4">
-                              <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1">Title <span className="text-red-400">*</span></label>
-                                <select 
-                                  id="titleCol" 
-                                  value={activeCard.settings?.titleCol || ''} 
-                                  onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, titleCol: e.target.value } })}
-                                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                  <option value="">-- Select Column --</option>
-                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1">Subtitle / Date</label>
-                                <select 
-                                  id="subtitleCol" 
-                                  value={activeCard.settings?.subtitleCol || ''}
-                                  onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, subtitleCol: e.target.value } })}
-                                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                  <option value="">-- None --</option>
-                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                <label className="block text-xs font-bold text-slate-700 mb-1">Status Tag</label>
-                                <select 
-                                  id="tagCol" 
-                                  value={activeCard.settings?.tagCol || ''}
-                                  onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, tagCol: e.target.value } })}
-                                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                                >
-                                  <option value="">-- None --</option>
-                                  {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                              </div>
-
-                              <div>
-                                 <label className="block text-xs font-bold text-slate-700 mb-2">Extra Details</label>
-                                 <div className="space-y-2">
-                                     {activeCard.settings?.extraFields?.map((field: string, idx: number) => (
-                                         <div key={idx} className="flex gap-2">
-                                             <select 
-                                                 value={field}
-                                                 onChange={(e) => {
-                                                     const newFields = [...(activeCard.settings.extraFields || [])];
-                                                     newFields[idx] = e.target.value;
-                                                     setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}});
-                                                 }}
-                                                 className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
-                                             >
-                                                 {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
-                                             </select>
-                                             <button onClick={() => {
-                                                  const newFields = activeCard.settings.extraFields.filter((_:any, i:number) => i !== idx);
-                                                  setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}});
-                                             }} className="text-red-500 hover:text-red-700"><i className="fas fa-trash"></i></button>
-                                         </div>
-                                     ))}
-                                     <button onClick={() => {
-                                          const current = activeCard.settings.extraFields || [];
-                                          const defaultCol = activeCard.columns?.[0] || "";
-                                          setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: [...current, defaultCol]}});
-                                     }} className="text-xs font-bold text-blue-600 hover:underline">+ Add Field</button>
-                                 </div>
-                              </div>
-
-                            </div>
+                            {/* 🟢 CHART CONFIGURATION */}
+                            {activeCard.settings?.viewMode === 'chart' ? (
+                                <div className="space-y-4">
+                                     <div className="bg-blue-50 p-3 rounded-lg text-xs text-blue-700 border border-blue-100">
+                                         <i className="fas fa-info-circle mr-1"></i> Ensure Y-Axis data is numeric.
+                                     </div>
+                                     <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">X-Axis (Category)</label>
+                                        <select 
+                                          value={activeCard.settings?.xAxisCol || ''} 
+                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, xAxisCol: e.target.value } })}
+                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                          <option value="">-- Select Column --</option>
+                                          {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                     </div>
+                                     <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Y-Axis (Value/Number)</label>
+                                        <select 
+                                          value={activeCard.settings?.yAxisCol || ''} 
+                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, yAxisCol: e.target.value } })}
+                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500"
+                                        >
+                                          <option value="">-- Select Column --</option>
+                                          {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                     </div>
+                                     <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Chart Type</label>
+                                        <select 
+                                          value={activeCard.settings?.chartType || 'bar'} 
+                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, chartType: e.target.value } })}
+                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none"
+                                        >
+                                          <option value="bar">Bar Chart</option>
+                                          <option value="line">Line Chart</option>
+                                          <option value="area">Area Chart</option>
+                                        </select>
+                                     </div>
+                                </div>
+                            ) : (
+                                /* REGULAR CARD/TABLE MAPPING */
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Title <span className="text-red-400">*</span></label>
+                                        <select 
+                                        id="titleCol" 
+                                        value={activeCard.settings?.titleCol || ''} 
+                                        onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, titleCol: e.target.value } })}
+                                        className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-blue-500 outline-none"
+                                        >
+                                        <option value="">-- Select Column --</option>
+                                        {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Subtitle / Date</label>
+                                        <select 
+                                        value={activeCard.settings?.subtitleCol || ''}
+                                        onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, subtitleCol: e.target.value } })}
+                                        className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        >
+                                        <option value="">-- None --</option>
+                                        {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Status Tag</label>
+                                        <select 
+                                        value={activeCard.settings?.tagCol || ''}
+                                        onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, tagCol: e.target.value } })}
+                                        className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                                        >
+                                        <option value="">-- None --</option>
+                                        {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-2">Extra Details</label>
+                                        <div className="space-y-2">
+                                            {activeCard.settings?.extraFields?.map((field: string, idx: number) => (
+                                                <div key={idx} className="flex gap-2">
+                                                    <select value={field} onChange={(e) => { const newFields = [...(activeCard.settings.extraFields || [])]; newFields[idx] = e.target.value; setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}}); }} className="flex-1 p-2 border border-slate-300 rounded-lg text-sm">
+                                                        {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                                    </select>
+                                                    <button onClick={() => { const newFields = activeCard.settings.extraFields.filter((_:any, i:number) => i !== idx); setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: newFields}}); }} className="text-red-500 hover:text-red-700"><i className="fas fa-trash"></i></button>
+                                                </div>
+                                            ))}
+                                            <button onClick={() => { const current = activeCard.settings.extraFields || []; const defaultCol = activeCard.columns?.[0] || ""; setActiveCard({...activeCard, settings: {...activeCard.settings, extraFields: [...current, defaultCol]}}); }} className="text-xs font-bold text-blue-600 hover:underline">+ Add Field</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                           </div>
 
                           <div className="p-6 border-t border-slate-200 bg-slate-50">
@@ -769,9 +808,40 @@ const setActiveModal = (card: any) => {
                           </div>
                           <div className="flex-1 p-10 flex items-center justify-center overflow-y-auto">
                             
-                            <div className="w-full max-w-md pointer-events-none select-none">
-                              {activeCard.settings?.viewMode === 'card' ? (
-                                <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-xl scale-110 origin-center">
+                            {/* 🟢 CHART RENDER LOGIC */}
+                            {activeCard.settings?.viewMode === 'chart' ? (
+                                <div className="w-full h-96 bg-white p-6 rounded-xl border border-slate-200 shadow-xl">
+                                    <h3 className="text-lg font-bold text-slate-800 mb-4 text-center">{activeCard.title}</h3>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        {activeCard.settings?.chartType === 'line' ? (
+                                            <LineChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
+                                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                <Line type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
+                                            </LineChart>
+                                        ) : activeCard.settings?.chartType === 'area' ? (
+                                            <AreaChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <Tooltip />
+                                                <Area type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" fill="#ddd6fe" />
+                                            </AreaChart>
+                                        ) : (
+                                            <BarChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                <Bar dataKey={activeCard.settings.yAxisCol} fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        )}
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : activeCard.settings?.viewMode === 'card' ? (
+                              <div className="w-full max-w-md pointer-events-none select-none bg-white p-6 rounded-xl border border-slate-200 shadow-xl scale-110 origin-center">
                                   <div className="flex justify-between items-start mb-4">
                                      <div>
                                         <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">{activeCard.settings?.titleCol || "Select Title"}</div>
@@ -779,60 +849,64 @@ const setActiveModal = (card: any) => {
                                             {activeCard.data[0]?.[activeCard.settings?.titleCol] || "Sample Value"}
                                         </h4>
                                      </div>
-                                     {activeCard.settings?.tagCol && activeCard.data[0]?.[activeCard.settings?.tagCol] && (
-                                       <span className="shrink-0 ml-2 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full">
-                                         {activeCard.data[0][activeCard.settings.tagCol]}
-                                       </span>
-                                     )}
                                   </div>
-                                  
                                   <div className="space-y-3">
-                                     {activeCard.settings?.subtitleCol && (
-                                       <div>
-                                           <div className="text-[10px] font-bold text-slate-400 uppercase">{activeCard.settings.subtitleCol}</div>
-                                           <div className="text-sm text-slate-600 font-medium">
-                                               {activeCard.data[0]?.[activeCard.settings?.subtitleCol] || "Sample Subtitle"}
-                                           </div>
-                                       </div>
-                                     )}
-                                     
-                                     {activeCard.settings?.extraFields?.map((f: string) => (
-                                         <div key={f}>
-                                             <div className="text-[10px] font-bold text-slate-400 uppercase">{f}</div>
-                                             <div className="text-sm text-slate-600 font-medium">{activeCard.data[0]?.[f] || "-"}</div>
-                                         </div>
-                                     ))}
+                                     <div className="h-2 bg-slate-100 rounded w-full"></div>
+                                     <div className="h-2 bg-slate-100 rounded w-2/3"></div>
                                   </div>
-                                </div>
-                              ) : (
-                                <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden">
-                                   <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex gap-4">
-                                      <div className="h-2 bg-slate-200 rounded w-16"></div>
-                                      <div className="h-2 bg-slate-200 rounded w-16"></div>
-                                      <div className="h-2 bg-slate-200 rounded w-16"></div>
-                                   </div>
-                                   <div className="p-4 space-y-4">
-                                     {[1,2,3].map(i => (
-                                       <div key={i} className="flex gap-4 items-center">
-                                          <div className="h-3 bg-slate-800 rounded w-1/3 opacity-80"></div>
-                                          <div className="h-3 bg-slate-200 rounded w-1/4"></div>
-                                          <div className="h-3 bg-emerald-100 rounded w-1/5"></div>
-                                       </div>
-                                     ))}
-                                   </div>
-                                </div>
-                              )}
-                              
-                              <div className="mt-8 text-center text-slate-400 text-xs">
-                                {activeCard.settings?.viewMode === 'card' 
-                                  ? "Card Grid Preview" 
-                                  : "Table List Preview"}
                               </div>
-                            </div>
-
+                            ) : (
+                               <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden w-full max-w-md pointer-events-none select-none">
+                                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex gap-4">
+                                     <div className="h-2 bg-slate-200 rounded w-16"></div>
+                                     <div className="h-2 bg-slate-200 rounded w-16"></div>
+                                  </div>
+                                  <div className="p-4 space-y-4">
+                                    {[1,2,3].map(i => (
+                                      <div key={i} className="flex gap-4 items-center">
+                                         <div className="h-3 bg-slate-800 rounded w-1/3 opacity-80"></div>
+                                         <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+                                      </div>
+                                    ))}
+                                  </div>
+                               </div>
+                            )}
+                            
                           </div>
                         </div>
                       </div>
+                  ) : activeCard.settings?.viewMode === 'chart' ? (
+                       <div className="p-8 h-full flex flex-col">
+                           <div className="flex-1 min-h-[400px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                        {activeCard.settings?.chartType === 'line' ? (
+                                            <LineChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
+                                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                <Line type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
+                                            </LineChart>
+                                        ) : activeCard.settings?.chartType === 'area' ? (
+                                            <AreaChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <Tooltip />
+                                                <Area type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" fill="#ddd6fe" />
+                                            </AreaChart>
+                                        ) : (
+                                            <BarChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                                <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                <Bar dataKey={activeCard.settings.yAxisCol} fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        )}
+                                </ResponsiveContainer>
+                           </div>
+                       </div>
                   ) : activeCard.settings?.viewMode === 'card' ? (
                       <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                            {activeCard.data.filter((row:any) => row[activeCard.settings.titleCol]).map((row:any, idx:number) => (
@@ -854,8 +928,8 @@ const setActiveModal = (card: any) => {
                                         )}
                                         {activeCard.settings.extraFields?.map((f: string) => (
                                            <div key={f}>
-                                               <div className="text-[10px] font-bold text-slate-400 uppercase">{f}</div>
-                                               <div className="text-sm text-slate-600 font-medium">{renderCellContent(row[f])}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase">{f}</div>
+                                                <div className="text-sm text-slate-600 font-medium">{renderCellContent(row[f])}</div>
                                            </div>
                                         ))}
                                    </div>
@@ -877,41 +951,13 @@ const setActiveModal = (card: any) => {
                   )
               ) : activeCard.id === "missions-status" ? (
                   <div className="p-0 bg-slate-50 min-h-full">
+                      {/* ... Missions Content ... */}
                       <div className="bg-sky-50 p-8 border-b border-sky-100 flex flex-col md:flex-row justify-between items-center gap-6">
-                          <div>
-                              <div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-1">Upcoming Departure</div>
-                              <h2 className="text-3xl font-bold text-slate-800 mb-1">{activeCard.upcomingLoc} Team</h2>
-                              <div className="flex items-center gap-2 text-slate-500"><i className="far fa-calendar-alt"></i> {activeCard.upcomingDate}</div>
-                          </div>
-                          <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-sky-100 text-center min-w-[120px]">
-                              <div className="text-4xl font-bold text-sky-600">{activeCard.upcomingOpen}</div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Open Spots</div>
-                          </div>
+                          <div><div className="text-xs font-bold text-sky-500 uppercase tracking-widest mb-1">Upcoming Departure</div><h2 className="text-3xl font-bold text-slate-800 mb-1">{activeCard.upcomingLoc} Team</h2><div className="flex items-center gap-2 text-slate-500"><i className="far fa-calendar-alt"></i> {activeCard.upcomingDate}</div></div>
+                          <div className="bg-white px-6 py-4 rounded-xl shadow-sm border border-sky-100 text-center min-w-[120px]"><div className="text-4xl font-bold text-sky-600">{activeCard.upcomingOpen}</div><div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Open Spots</div></div>
                       </div>
-                      <div className="p-8">
-                          <div className="flex items-center gap-2 mb-4"><i className="fas fa-ticket-alt text-slate-400"></i><h4 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Open Registrations</h4></div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {activeCard.trips.map((trip: any, idx: number) => (
-                                  <div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm">
-                                      <div><div className="font-bold text-slate-800 text-lg">{trip.name}</div><div className="text-xs text-slate-400 mt-1">Registration Open</div></div>
-                                      <div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{trip.spots} Spots</div>
-                                  </div>
-                              ))}
-                          </div>
-                      </div>
-                      <div className="bg-white p-8 border-t border-slate-200">
-                          <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-6">2026 Statistics</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                              <div>
-                                  <div className="flex items-end gap-3 mb-2"><span className="text-4xl font-bold text-slate-800">{activeCard.totalNonStaff}</span><span className="text-sm text-slate-500 mb-1">Non-Staff ({activeCard.percentNonStaff})</span></div>
-                                  <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-cyan-500 h-2 rounded-full" style={{ width: activeCard.percentNonStaff }}></div></div>
-                              </div>
-                              <div>
-                                  <div className="flex items-end gap-3 mb-2"><span className="text-4xl font-bold text-slate-800">{activeCard.totalStaff}</span><span className="text-sm text-slate-500 mb-1">Staff ({activeCard.percentStaff})</span></div>
-                                  <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: activeCard.percentStaff }}></div></div>
-                              </div>
-                          </div>
-                      </div>
+                      <div className="p-8"><div className="flex items-center gap-2 mb-4"><i className="fas fa-ticket-alt text-slate-400"></i><h4 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Open Registrations</h4></div><div className="grid grid-cols-1 md:grid-cols-2 gap-4">{activeCard.trips.map((trip: any, idx: number) => (<div key={idx} className="bg-white p-5 rounded-xl border border-slate-200 flex justify-between items-center shadow-sm"><div><div className="font-bold text-slate-800 text-lg">{trip.name}</div><div className="text-xs text-slate-400 mt-1">Registration Open</div></div><div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">{trip.spots} Spots</div></div>))}</div></div>
+                      <div className="bg-white p-8 border-t border-slate-200"><h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-6">2026 Statistics</h4><div className="grid grid-cols-1 md:grid-cols-2 gap-12"><div><div className="flex items-end gap-3 mb-2"><span className="text-4xl font-bold text-slate-800">{activeCard.totalNonStaff}</span><span className="text-sm text-slate-500 mb-1">Non-Staff ({activeCard.percentNonStaff})</span></div><div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-cyan-500 h-2 rounded-full" style={{ width: activeCard.percentNonStaff }}></div></div></div><div><div className="flex items-end gap-3 mb-2"><span className="text-4xl font-bold text-slate-800">{activeCard.totalStaff}</span><span className="text-sm text-slate-500 mb-1">Staff ({activeCard.percentStaff})</span></div><div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: activeCard.percentStaff }}></div></div></div></div></div>
                   </div>
               ) : activeCard.source?.includes("sheet") ? (
                 <div className="p-8 space-y-8">
@@ -939,58 +985,21 @@ const setActiveModal = (card: any) => {
                                         </div>
                                     ))}
                                 </div>
-                                {/* 🟢 NEW CLEAN FOOTER UI */}
                                 {isEditing && (
                                     <div className="mt-4 pt-4 border-t border-slate-50">
-                                        {addingLinkToBlock === bIdx ? (
-                                            // STATE 2: INPUT FORM
-                                            <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-left-2 duration-200">
-                                                <input 
-                                                    ref={(el) => { newItemTitleRefs.current[`block-${bIdx}`] = el }} 
-                                                    type="text" 
-                                                    placeholder="Name your file..." 
-                                                    autoFocus
-                                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all" 
-                                                />
-                                                <input 
-                                                    ref={(el) => { newItemUrlRefs.current[`block-${bIdx}`] = el }} 
-                                                    type="text" 
-                                                    placeholder="Paste URL..." 
-                                                    className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all" 
-                                                />
-                                                <button 
-                                                    onClick={() => addItemToBlock(bIdx)} 
-                                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm"
-                                                >
-                                                    Add
-                                                </button>
-                                                <button 
-                                                    onClick={() => setAddingLinkToBlock(null)} 
-                                                    className="text-slate-400 hover:text-slate-600 px-2 transition-colors"
-                                                >
-                                                    <i className="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            // STATE 1: CLEAN BUTTONS
-                                            <div className="flex gap-3">
-                                                <button 
-                                                    onClick={() => handleOpenPicker(bIdx)} 
-                                                    className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200"
-                                                >
-                                                    {/* SVG Drive Icon */}
-                                                    <svg viewBox="0 0 87.3 78" width="14" height="14" className="opacity-80"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l18.25-31.6H6.6v21.65zm13.1-22.8L6.6 19.85l-3.3 5.7C2.1 27.9 1.5 30.2 1.5 32.55v15.85l18.2-4.35zM22.65 6.6L19.35.9C18 .1 16.55-.3 15-.3h-3.4l18.25 31.65 14.2-24.6h-21.4zM62.6 6.6h-14.8l-7.1 12.35L54.1 36.3l14.8-25.6c-.65-1.9-1.9-3.35-3.65-4.1zM34.7 44.05l-7.1 12.3 10.75 18.6c2.35 0 4.7-.6 6.85-1.8L84.65 44.05H34.7zM66.45 44.05l18.2 31.6c1.35-.8 2.5-1.9 3.3-3.3l3.85-6.65-18.25-31.6-7.1 9.95z" fill="currentColor"/></svg>
-                                                    Add from Drive
-                                                </button>
-
-                                                <button 
-                                                    onClick={() => setAddingLinkToBlock(bIdx)} 
-                                                    className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors bg-blue-50 text-blue-700 hover:bg-blue-100"
-                                                >
-                                                    + Add Link
-                                                </button>
-                                            </div>
-                                        )}
+                                            {addingLinkToBlock === bIdx ? (
+                                                <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-left-2 duration-200">
+                                                    <input ref={(el) => { newItemTitleRefs.current[`block-${bIdx}`] = el }} type="text" placeholder="Name your file..." autoFocus className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all" />
+                                                    <input ref={(el) => { newItemUrlRefs.current[`block-${bIdx}`] = el }} type="text" placeholder="Paste URL..." className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-blue-500 focus:bg-white transition-all" />
+                                                    <button onClick={() => addItemToBlock(bIdx)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 transition-colors shadow-sm">Add</button>
+                                                    <button onClick={() => setAddingLinkToBlock(null)} className="text-slate-400 hover:text-slate-600 px-2 transition-colors"><i className="fas fa-times"></i></button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex gap-3">
+                                                    <button onClick={() => handleOpenPicker(bIdx)} className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors bg-slate-100 text-slate-700 hover:bg-slate-200"><svg viewBox="0 0 87.3 78" width="14" height="14" className="opacity-80"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l18.25-31.6H6.6v21.65zm13.1-22.8L6.6 19.85l-3.3 5.7C2.1 27.9 1.5 30.2 1.5 32.55v15.85l18.2-4.35zM22.65 6.6L19.35.9C18 .1 16.55-.3 15-.3h-3.4l18.25 31.65 14.2-24.6h-21.4zM62.6 6.6h-14.8l-7.1 12.35L54.1 36.3l14.8-25.6c-.65-1.9-1.9-3.35-3.65-4.1zM34.7 44.05l-7.1 12.3 10.75 18.6c2.35 0 4.7-.6 6.85-1.8L84.65 44.05H34.7zM66.45 44.05l18.2 31.6c1.35-.8 2.5-1.9 3.3-3.3l3.85-6.65-18.25-31.6-7.1 9.95z" fill="currentColor"/></svg>Add from Drive</button>
+                                                    <button onClick={() => setAddingLinkToBlock(bIdx)} className="px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors bg-blue-50 text-blue-700 hover:bg-blue-100">+ Add Link</button>
+                                                </div>
+                                            )}
                                     </div>
                                 )}
                             </div>
