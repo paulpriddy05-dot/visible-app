@@ -11,16 +11,17 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
 import DashboardChat from "@/components/DashboardChat";
-// 🟢 NEW IMPORTS FOR CHARTS
+// 🟢 CHARTS IMPORTS
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, 
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell, Legend 
 } from 'recharts';
+
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6'];
 
 // 🔴 GOOGLE KEYS
-const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o"; // Make sure to use your env vars if possible
+const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o"; 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1072792448216-g7c565rslebga1m964jbi86esu46k24r.apps.googleusercontent.com";
 
 const COLOR_MAP: Record<string, string> = {
@@ -40,7 +41,6 @@ const toCSVUrl = (url: string) => {
 const cleanNumber = (val: any) => {
   if (typeof val === 'number') return val;
   if (!val) return 0;
-  // Remove $, commas, and spaces
   const clean = val.toString().replace(/[$,\s]/g, '');
   return parseFloat(clean) || 0;
 };
@@ -55,12 +55,9 @@ const renderCellContent = (content: string) => {
   return <span className="text-slate-700 font-medium">{content}</span>;
 };
 
-// You'll need to import useMemo at the top of your file if it's not there yet:
-// import { useState, useEffect, useRef, useMemo } from "react";
-
-// --- SUB-COMPONENT: Sortable Manual Card ---
 // --- SUB-COMPONENT: Sortable Manual Card ---
 function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
+  // Performance: Exclude heavy data from dnd-kit tracking to prevent glitches
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
       id: card.id, 
       data: { id: card.id, title: card.title, settings: card.settings, type: card.type } 
@@ -74,12 +71,13 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
   
-  // 🟢 UPDATED LOGIC: Only show the mini-chart if the user EXPLICITLY checked "Show on Dashboard"
+  // 🟢 LOGIC: Only show chart on dashboard if explicitly enabled
   const showMiniChart = card.settings?.viewMode === 'chart' && 
                         card.data && 
                         card.settings?.yAxisCol && 
-                        card.settings?.showOnDashboard; // <--- New Check
+                        card.settings?.showOnDashboard;
 
+  // 🟢 MEMO: Prepare clean data for the mini-chart
   const miniChartData = useMemo(() => {
     if (!showMiniChart || !card.data) return [];
     return card.data.slice(0, 15).map((d: any) => ({
@@ -131,52 +129,17 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
                  </div>
              </div>
         ) : (
-            /* 🟢 FALLBACK: Even if 'Chart Mode' is on inside, we show the Icon here unless toggled. */
             <>
                 <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
                 <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title || "Untitled"}</h4>
                 <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1">
-                    {/* If viewMode is chart, show 'Chart' badge, else show file count */}
+                    {/* Badge logic: Show 'Data View' or File Count */}
                     {card.settings?.viewMode === 'chart' ? (
                         <><i className="fas fa-chart-pie"></i> Data View</>
                     ) : (
                         <><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</>
                     )}
                 </div>
-            </>
-        )}
-    </div>
-  );
-}
-
-  // Default Vertical Card
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
-        {showMiniChart ? (
-             <div className="w-full h-full absolute inset-0 p-4 pt-10 opacity-90 pointer-events-none">
-                 {/* Mini Chart Render using CLEAN data */}
-                 <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={miniChartData}>
-                        <Area 
-                            type="monotone" 
-                            dataKey={card.settings.yAxisCol} 
-                            stroke="#fff" 
-                            fill="rgba(255,255,255,0.3)" 
-                            strokeWidth={2} 
-                            isAnimationActive={false} // Disable animation for performance
-                        />
-                    </AreaChart>
-                 </ResponsiveContainer>
-                 <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80 truncate px-4">
-                    {card.title || "Untitled"}
-                 </div>
-             </div>
-        ) : (
-            /* Standard Icon View */
-            <>
-                <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
-                <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title || "Untitled"}</h4>
-                <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1"><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</div>
             </>
         )}
     </div>
@@ -243,7 +206,7 @@ export default function DynamicDashboard() {
             header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), 
             complete: (results: any) => {
                 const enrichedCard = { ...card, data: results.data, columns: results.meta.fields, rowCount: results.data.length, sheet_url: url, settings: { ...card.settings, connectedSheet: url } };
-                // If initializing inside modal, don't auto set viewmode here, let setActiveModal handle it
+                // Using existing card state logic
                 setActiveCard(enrichedCard);
                 setManualCards(prev => prev.map(c => c.id === card.id ? enrichedCard : c));
             }
@@ -310,23 +273,29 @@ export default function DynamicDashboard() {
     if (data) setManualCards(data.map((item: any) => ({ ...item, source: 'manual' })));
   };
 
+  // 🟢 FIXED: This now slices data for the background lists so dragging doesn't lag/crash
   const saveMapping = async (newSettings: any) => {
-      // Create the updated card object
-      const updatedCard = { ...activeCard, settings: newSettings };
-      
-      // Update the active card state immediately so the UI reflects changes
-      setActiveCard(updatedCard);
+      // 1. Update the Active Modal (Keep full data here so the preview stays live)
+      const updatedModalCard = { ...activeCard, settings: newSettings };
+      setActiveCard(updatedModalCard);
 
-      // Update the correct list (Generic Widget vs Manual Card)
+      // 2. Prepare the Card for the Dashboard List
+      // We slice the data to only 20 rows. This is enough for the mini-chart 
+      // but small enough to stop the "Disappearing Title" glitch.
+      const cardForList = { ...updatedModalCard };
+      if (cardForList.data && cardForList.data.length > 20) {
+          cardForList.data = cardForList.data.slice(0, 20);
+      }
+
+      // 3. Update the Lists
       if (activeCard.type === 'generic-sheet') {
-          setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? updatedCard : w));
+          setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? cardForList : w));
           await supabase.from('widgets').update({ settings: newSettings }).eq('id', activeCard.id);
       } else {
-          setManualCards(prev => prev.map(c => c.id === activeCard.id ? updatedCard : c));
+          setManualCards(prev => prev.map(c => c.id === activeCard.id ? cardForList : c));
           await supabase.from('Weeks').update({ settings: newSettings }).eq('id', activeCard.id);
       }
       
-      // Close the mapping panel
       setIsMapping(false);
   };
 
@@ -490,7 +459,6 @@ export default function DynamicDashboard() {
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   
   const setActiveModal = (card: any) => { 
-        // 1. Closing the modal
         if (!card) {
             if (isEditing && activeCard) handleSave();
             setActiveCard(null);
@@ -501,17 +469,14 @@ export default function DynamicDashboard() {
             return;
         }
 
-        // 2. Opening a new card
         if (isEditing && activeCard) handleSave(); 
         setIsEditing(false); 
         setIsMapping(false); 
         setAddingLinkToBlock(null);
 
-        // 🟢 CORRECTED: We use the card exactly as it is (respecting saved viewMode)
-        // instead of forcing it to null.
+        // 🟢 PRESERVE SAVED VIEW MODE
         const cardToLoad = { ...card };
 
-        // 3. Load data if needed
         if (cardToLoad.settings?.connectedSheet && !cardToLoad.data) { 
             loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad); 
         } else { 
@@ -694,7 +659,7 @@ export default function DynamicDashboard() {
                       }} 
                       className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode 
                         ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200" 
-                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-500 animate-pulse" 
+                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-50 animate-pulse" 
                       }`}
                     >
                       <i className={`fas ${activeCard.settings?.viewMode ? 'fa-folder-open' : 'fa-chart-pie'}`}></i> 
@@ -801,21 +766,6 @@ export default function DynamicDashboard() {
                                         >
                                           <option value="">-- Select Column --</option>
                                           {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                     </div>
-                                     <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1">Chart Type</label>
-                                        <select 
-                                          value={activeCard.settings?.chartType || 'bar'} 
-                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, chartType: e.target.value } })}
-                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none"
-                                        >
-                                          <option value="bar">Bar Chart</option>
-                                          <option value="line">Line Chart</option>
-                                          <option value="area">Area Chart</option>
-                                          {/* 🟢 NEW OPTIONS */}
-                                          <option value="pie">Pie Chart</option>
-                                          <option value="donut">Donut Chart</option>
                                         </select>
                                      </div>
                                      <div>
