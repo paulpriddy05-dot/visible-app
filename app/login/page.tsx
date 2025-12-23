@@ -52,10 +52,8 @@ function LoginContent() {
       } 
       else if (view === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          // 🟢 THIS IS THE FIX:
-          // We send them to the 'callback' route first (to log them in),
-          // and attach '?next=/update-password' so the callback knows where to send them after.
-          redirectTo: `${origin}/auth/callback?next=/update-password`,
+          // 🟢 FIX: Point to the new dedicated reset-callback
+          redirectTo: `${origin}/auth/reset-callback`,
         });
         if (error) throw error;
         setMessage('Password reset link sent! Check your email.');
