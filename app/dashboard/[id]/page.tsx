@@ -410,7 +410,7 @@ export default function DynamicDashboard() {
   const missionSectionItems = [ missionCard, ...manualCards.filter(c => c.settings?.category === "Missions"), ...genericWidgets.filter(c => c.settings?.category === "Missions") ].filter(Boolean);
 
   return (
-    <div className="pb-20 min-h-screen bg-slate-50/50">
+    <div className="pb-20 min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100 transition-colors duration-300">
       <nav className="bg-slate-900 text-white sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
