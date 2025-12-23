@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { supabase } from "@/lib/supabase"; // Using your singleton client
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -15,23 +15,7 @@ function LoginContent() {
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 1. Google Login Handler
-  const handleGoogleLogin = async () => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-        queryParams: { access_type: 'offline', prompt: 'consent' },
-      },
-    });
-    if (error) {
-        setErrorMsg("Google Login Error: " + error.message);
-        setLoading(false);
-    }
-  };
-
-  // 2. Email/Password Handler (Sign Up, Sign In, Reset)
+  // 1. Email/Password Handler (Sign Up, Sign In, Reset)
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -52,13 +36,12 @@ function LoginContent() {
       } 
       else if (view === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          // 🟢 FIX: Point to the new dedicated reset-callback
           redirectTo: `${origin}/auth/reset-callback`,
         });
         if (error) throw error;
         setMessage('Password reset link sent! Check your email.');
         setView('login'); 
-      }
+      } 
       else {
         // Login
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -110,27 +93,7 @@ function LoginContent() {
 
             <div className="space-y-5">
                 
-                {/* 1. GOOGLE LOGIN (Only show on Login/Signup views) */}
-                {view !== 'forgot' && (
-                    <>
-                        <button 
-                            onClick={handleGoogleLogin}
-                            disabled={loading}
-                            className="w-full flex items-center justify-center gap-3 px-6 py-3 border border-slate-200 rounded-xl text-slate-700 font-bold hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm group disabled:opacity-50"
-                        >
-                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5 group-hover:scale-110 transition-transform" alt="Google" />
-                            <span>Continue with Google</span>
-                        </button>
-
-                        <div className="relative flex py-1 items-center">
-                            <div className="flex-grow border-t border-slate-100"></div>
-                            <span className="flex-shrink-0 mx-4 text-slate-300 text-[10px] uppercase font-bold tracking-wider">Or continue with email</span>
-                            <div className="flex-grow border-t border-slate-100"></div>
-                        </div>
-                    </>
-                )}
-
-                {/* 2. EMAIL FORM */}
+                {/* EMAIL FORM (Only item remaining) */}
                 <form onSubmit={handleAuth} className="flex flex-col gap-4">
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email</label>
