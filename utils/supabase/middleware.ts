@@ -2,7 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
-  // Create an initial response
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -32,26 +31,31 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  // 1. Get the current user
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 2. PROTECTED ROUTE LOGIC
+  const path = request.nextUrl.pathname;
+
+  // 1. PROTECTED ROUTES
   // If user is NOT logged in and tries to access dashboard, kick them to login
-  if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
+  if (path.startsWith("/dashboard") && !user) {
     const url = request.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/login"; // or "/"
     return NextResponse.redirect(url);
   }
 
-  // 3. PUBLIC ROUTE LOGIC
-  // If user IS logged in and is sitting on the Login page (/), kick them to Dashboard
-  if (request.nextUrl.pathname === "/" && user) {
+  // 2. AUTH ROUTES (Login/Signup/Home)
+  // If user IS logged in, we usually want to send them to Dashboard...
+  if ((path === "/" || path === "/login") && user) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
+  
+  // ⚠️ CRITICAL: We do NOT redirect /update-password.
+  // We want logged-in users to see that page so they can change their password.
+  // This function simply returns 'supabaseResponse' below, allowing the request to pass.
 
   return supabaseResponse;
 }
