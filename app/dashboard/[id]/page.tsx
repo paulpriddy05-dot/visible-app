@@ -59,8 +59,8 @@ const renderCellContent = (content: string) => {
 // import { useState, useEffect, useRef, useMemo } from "react";
 
 // --- SUB-COMPONENT: Sortable Manual Card ---
+// --- SUB-COMPONENT: Sortable Manual Card ---
 function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
-  // Performance: Exclude heavy data from dnd-kit tracking
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
       id: card.id, 
       data: { id: card.id, title: card.title, settings: card.settings, type: card.type } 
@@ -74,20 +74,19 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
   
-  // 🟢 CHART PREVIEW LOGIC
-  const showMiniChart = card.settings?.viewMode === 'chart' && card.data && card.settings?.yAxisCol;
+  // 🟢 UPDATED LOGIC: Only show the mini-chart if the user EXPLICITLY checked "Show on Dashboard"
+  const showMiniChart = card.settings?.viewMode === 'chart' && 
+                        card.data && 
+                        card.settings?.yAxisCol && 
+                        card.settings?.showOnDashboard; // <--- New Check
 
-  // 🟢 NEW: Prepare clean, numeric data for the mini-chart
-  // We use useMemo so this only recalculates when the data changes, keeping drag-and-drop smooth.
   const miniChartData = useMemo(() => {
     if (!showMiniChart || !card.data) return [];
-    // Take the first 15 rows and clean the number format (e.g., "$1,200" -> 1200)
     return card.data.slice(0, 15).map((d: any) => ({
         ...d,
         [card.settings.yAxisCol]: cleanNumber(d[card.settings.yAxisCol])
     }));
   }, [card.data, card.settings?.yAxisCol, showMiniChart]);
-
 
   if (variant === 'mission') {
       return (
@@ -110,6 +109,45 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
         </div>
       );
   }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
+        {showMiniChart ? (
+             <div className="w-full h-full absolute inset-0 p-4 pt-10 opacity-90 pointer-events-none">
+                 <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={miniChartData}>
+                        <Area 
+                            type="monotone" 
+                            dataKey={card.settings.yAxisCol} 
+                            stroke="#fff" 
+                            fill="rgba(255,255,255,0.3)" 
+                            strokeWidth={2} 
+                            isAnimationActive={false} 
+                        />
+                    </AreaChart>
+                 </ResponsiveContainer>
+                 <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80 truncate px-4">
+                    {card.title || "Untitled"}
+                 </div>
+             </div>
+        ) : (
+            /* 🟢 FALLBACK: Even if 'Chart Mode' is on inside, we show the Icon here unless toggled. */
+            <>
+                <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
+                <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title || "Untitled"}</h4>
+                <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1">
+                    {/* If viewMode is chart, show 'Chart' badge, else show file count */}
+                    {card.settings?.viewMode === 'chart' ? (
+                        <><i className="fas fa-chart-pie"></i> Data View</>
+                    ) : (
+                        <><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc:any, block:any) => acc + (block.items?.length || 0), 0) : 0} Files</>
+                    )}
+                </div>
+            </>
+        )}
+    </div>
+  );
+}
 
   // Default Vertical Card
   return (
@@ -779,6 +817,36 @@ export default function DynamicDashboard() {
                                           <option value="pie">Pie Chart</option>
                                           <option value="donut">Donut Chart</option>
                                         </select>
+                                     </div>
+                                     <div>
+                                        <label className="block text-xs font-bold text-slate-700 mb-1">Chart Type</label>
+                                        <select 
+                                          value={activeCard.settings?.chartType || 'bar'} 
+                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, chartType: e.target.value } })}
+                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none"
+                                        >
+                                          <option value="bar">Bar Chart</option>
+                                          <option value="line">Line Chart</option>
+                                          <option value="area">Area Chart</option>
+                                          <option value="pie">Pie Chart</option>
+                                          <option value="donut">Donut Chart</option>
+                                        </select>
+                                     </div>
+
+                                     {/* 🟢 NEW TOGGLE: CONTROL DASHBOARD VISIBILITY */}
+                                     <div className="pt-4 border-t border-slate-100">
+                                        <label className="flex items-center gap-3 cursor-pointer group">
+                                            <input 
+                                                type="checkbox" 
+                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                                checked={activeCard.settings?.showOnDashboard || false}
+                                                onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, showOnDashboard: e.target.checked } })}
+                                            />
+                                            <div>
+                                                <div className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Show Chart on Dashboard</div>
+                                                <div className="text-[10px] text-slate-400">Replace the folder icon with this chart</div>
+                                            </div>
+                                        </label>
                                      </div>
                                 </div>
                             ) : (
