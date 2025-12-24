@@ -1,59 +1,67 @@
 "use client";
 
-import { Suspense } from "react";
-import { supabase } from "@/lib/supabase"; // 🟢 CORRECTED IMPORT
-import { useRouter, useParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
-function JoinContent() {
-  const router = useRouter();
+export default function JoinPage() {
   const params = useParams();
-  const [loading, setLoading] = useState(true);
-  const [status, setStatus] = useState("Verifying invite...");
+  const router = useRouter();
+  const token = params.token as string;
+  const [status, setStatus] = useState("Checking invitation...");
 
   useEffect(() => {
-    const acceptInvite = async () => {
-      const token = params?.token as string;
-      
-      if (!token) {
-        setStatus("Invalid invite link.");
-        setLoading(false);
+    const handleJoin = async () => {
+      // 1. Check if User is Logged In
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        // 🔴 NOT LOGGED IN: Redirect to Login, but pass the return URL
+        // You must update your Login page to look for ?next=/...
+        router.push(`/login?next=/join/${token}`);
         return;
       }
 
-      // Check if user is logged in
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        router.push(`/?error=${encodeURIComponent("Please login to accept invite")}`);
+      // 2. Verify Token & Fetch Dashboard
+      const { data: dashboard, error } = await supabase
+        .from('dashboards')
+        .select('id, title')
+        .eq('share_token', token)
+        .single();
+
+      if (error || !dashboard) {
+        setStatus("Invalid or expired invitation.");
         return;
       }
 
-      // If logged in, we would normally process the token here.
-      // For now, we just redirect to the dashboard.
-      setStatus("Invite accepted! Redirecting...");
-      setTimeout(() => {
-         router.push("/dashboard");
-      }, 1500);
+      // 3. Add User to Dashboard Members
+      const { error: joinError } = await supabase
+        .from('dashboard_members')
+        .upsert({ 
+          dashboard_id: dashboard.id, 
+          user_id: session.user.id,
+          role: 'editor' // Default role for invited users
+        }, { onConflict: 'dashboard_id,user_id' });
+
+      if (joinError) {
+        console.error(joinError);
+        setStatus("Error joining dashboard.");
+      } else {
+        setStatus(`Success! Joining ${dashboard.title}...`);
+        // 4. Redirect to the Dashboard
+        setTimeout(() => router.push(`/dashboard/${dashboard.id}`), 1000);
+      }
     };
 
-    acceptInvite();
-  }, [params, router]);
+    handleJoin();
+  }, [token, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="bg-white p-8 rounded-xl shadow-md border border-slate-200 text-center max-w-md w-full">
-        {loading ? <i className="fas fa-circle-notch fa-spin text-3xl text-blue-500 mb-4"></i> : null}
+      <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
+        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
         <h2 className="text-xl font-bold text-slate-800">{status}</h2>
       </div>
     </div>
-  );
-}
-
-export default function JoinPage() {
-  return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <JoinContent />
-    </Suspense>
   );
 }

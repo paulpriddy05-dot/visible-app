@@ -4,6 +4,8 @@ import { useState, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 function LoginContent() {
   const router = useRouter();
@@ -159,6 +161,22 @@ function LoginContent() {
       </div>
     </div>
   );
+// ... inside your component function ...
+
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextUrl = searchParams.get("next");
+
+  // 🟢 NEW LISTENER: If a user signs in, check if they need to go somewhere specific
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" && nextUrl) {
+        router.push(nextUrl); // Use the invite link
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [nextUrl, router]);
 }
 
 export default function LoginPage() {

@@ -146,6 +146,22 @@ export default function LandingPage() {
             </p>
         </div>
       </footer>
+
+
+      {/* 6. FOOTER (Required for Google Verification) */}
+      <footer className="py-12 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2">
+            <span className="font-serif text-xl font-bold text-slate-900 dark:text-zinc-100">V</span>
+            <span className="text-sm text-slate-500">© 2025 Visible. All rights reserved.</span>
+          </div>
+          <div className="flex gap-8 text-sm font-medium text-slate-600 dark:text-zinc-400">
+            <Link href="/privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
+            <a href="mailto:hello@usevisible.app" className="hover:text-blue-600 transition-colors">Contact</a>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
