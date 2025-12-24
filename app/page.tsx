@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import DemoDashboard from "@/components/DemoDashboard";
+import Logo from "@/components/Logo"; // 🟢 Import the new Logo
 
 export default function LandingPage() {
   return (
@@ -9,29 +10,21 @@ export default function LandingPage() {
       <nav className="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-slate-100 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
           
-          {/* 🟢 NEW LOGO: Matches your image (Serif V + Sans Text) */}
-          <div className="flex items-baseline gap-1 select-none cursor-default">
-            <span className="font-serif text-4xl sm:text-5xl font-bold text-slate-900 leading-none">
-              V
-            </span>
-            <span className="text-xl sm:text-2xl font-medium text-slate-900 tracking-tight">
-              Visible
-            </span>
-          </div>
-<nav className="...">
-  {/* ... Logo is here ... */}
-  
-  <div className="flex items-center gap-6">
-    {/* 🟢 NEW LINK HERE */}
-    <Link 
-      href="/why" 
-      className="text-sm font-medium text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors hidden md:block"
-    >
-      Our Story
-    </Link>
+          {/* 🟢 NEW LOGO COMPONENT */}
+          <Link href="/" className="select-none">
+             <Logo className="h-10" />
+          </Link>
 
-  </div>
-</nav>
+          <div className="flex items-center gap-6">
+            {/* Nav Links */}
+            <Link 
+              href="/why" 
+              className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors hidden md:block"
+            >
+              Our Story
+            </Link>
+          </div>
+
           <div className="flex items-center gap-4 sm:gap-6">
             <Link 
               href="/login" 
@@ -53,7 +46,7 @@ export default function LandingPage() {
       <main className="flex-1 flex flex-col items-center pt-28 sm:pt-40 pb-12 sm:pb-20 px-4 sm:px-6 text-center max-w-7xl mx-auto w-full">
         
         <div className="inline-block mb-6 px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px] sm:text-xs uppercase tracking-widest border border-indigo-100">
-          v2.0 Now Available
+          Beta App in Testing
         </div>
         
         <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-slate-900 mb-6 sm:mb-8 tracking-tight leading-tight max-w-5xl">
@@ -131,34 +124,20 @@ export default function LandingPage() {
         </div>
       </main>
 
-      {/* --- FOOTER --- */}
-      <footer className="bg-slate-50 border-t border-slate-200 py-12 text-center">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col items-center">
-            
-            {/* 🟢 NEW LOGO IN FOOTER */}
-            <div className="flex items-baseline gap-1 mb-6 opacity-50 grayscale hover:grayscale-0 transition-all cursor-default">
-                <span className="font-serif text-2xl font-bold text-slate-900 leading-none">V</span>
-                <span className="text-lg font-bold text-slate-600 tracking-tight">Visible</span>
-            </div>
-
-            <p className="text-slate-400 text-sm">
-                &copy; {new Date().getFullYear()} Visible App. Built for modern teams.
-            </p>
-        </div>
-      </footer>
-
-
-      {/* 6. FOOTER (Required for Google Verification) */}
-      <footer className="py-12 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 transition-colors duration-300">
+      {/* --- FOOTER (Consolidated) --- */}
+      <footer className="py-12 border-t border-slate-200 bg-slate-50 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <span className="font-serif text-xl font-bold text-slate-900 dark:text-zinc-100">V</span>
-            <span className="text-sm text-slate-500">© 2025 Visible. All rights reserved.</span>
+          
+          <div className="flex flex-col items-center md:items-start gap-2">
+            {/* 🟢 NEW LOGO IN FOOTER */}
+            <Logo className="h-8 grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all" />
+            <span className="text-xs text-slate-400">© 2025 Visible. All rights reserved.</span>
           </div>
-          <div className="flex gap-8 text-sm font-medium text-slate-600 dark:text-zinc-400">
-            <Link href="/privacy" className="hover:text-blue-600 transition-colors">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-blue-600 transition-colors">Terms of Service</Link>
-            <a href="mailto:hello@usevisible.app" className="hover:text-blue-600 transition-colors">Contact</a>
+
+          <div className="flex gap-8 text-sm font-medium text-slate-500">
+            <Link href="/privacy" className="hover:text-indigo-600 transition-colors">Privacy Policy</Link>
+            <Link href="/terms" className="hover:text-indigo-600 transition-colors">Terms of Service</Link>
+            <a href="mailto:hello@usevisible.app" className="hover:text-indigo-600 transition-colors">Contact</a>
           </div>
         </div>
       </footer>
