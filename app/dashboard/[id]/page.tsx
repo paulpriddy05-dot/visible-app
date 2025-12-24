@@ -519,6 +519,15 @@ export default function DynamicDashboard() {
                 <button onClick={() => setShowTutorial(true)} className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"><i className="fas fa-question text-sm"></i></button>
                 <div className="h-6 w-px bg-slate-700 mx-1"></div> 
                 <SignOutButton />
+                // Inside the Navigation Bar, near the SignOutButton...
+
+<button 
+  onClick={() => window.location.href = '/account'} 
+  className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700" 
+  title="Account Settings"
+>
+  <i className="fas fa-user-cog text-sm"></i>
+</button>
             </div>
           </div>
         </div>
