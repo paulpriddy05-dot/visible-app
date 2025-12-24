@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next"); // 🟢 Capture invite link if present
+  const nextUrl = searchParams.get("next"); 
 
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'login' | 'signup' | 'forgot'>('login');
@@ -18,19 +18,20 @@ function LoginContent() {
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 🟢 NEW LISTENER: If a user is already signed in (or signs in via magic link), redirect them
+  // Listener: Redirect if already logged in
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        console.log("Session found, redirecting to:", nextUrl || '/dashboard');
         router.push(nextUrl || '/dashboard');
       }
     };
-    
     checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
+        console.log("User signed in, redirecting...");
         router.push(nextUrl || '/dashboard');
       }
     });
@@ -38,9 +39,10 @@ function LoginContent() {
     return () => subscription.unsubscribe();
   }, [nextUrl, router]);
 
-  // 1. Email/Password Handler (Sign Up, Sign In, Reset)
   const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault(); // Stop page reload
+    console.log("Attempting auth:", view); // 🟢 Debug Log
+    
     setLoading(true);
     setMessage('');
     setErrorMsg('');
@@ -67,13 +69,16 @@ function LoginContent() {
       } 
       else {
         // Login
+        console.log("Signing in with password..."); // 🟢 Debug Log
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        // 🟢 Redirect to invite link if exists, otherwise dashboard
+        
+        console.log("Sign in successful!"); // 🟢 Debug Log
         router.push(nextUrl || '/dashboard');
         router.refresh();
       }
     } catch (err: any) {
+      console.error("Auth Error:", err); // 🟢 Debug Log
       setErrorMsg(err.message);
     } finally {
       setLoading(false);
@@ -99,7 +104,6 @@ function LoginContent() {
 
         {/* LOGIN CARD */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 relative overflow-hidden">
-            {/* Top Border Accent */}
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500"></div>
 
             <div className="text-center mb-8">
@@ -111,13 +115,11 @@ function LoginContent() {
                 </p>
             </div>
 
-            {/* Alerts */}
             {errorMsg && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 flex items-center gap-2"><i className="fas fa-exclamation-circle"></i> {errorMsg}</div>}
             {message && <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-100 flex items-center gap-2"><i className="fas fa-check-circle"></i> {message}</div>}
 
             <div className="space-y-5">
                 
-                {/* EMAIL FORM */}
                 <form onSubmit={handleAuth} className="flex flex-col gap-4">
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email</label>
@@ -152,7 +154,9 @@ function LoginContent() {
                       </div>
                     )}
                     
+                    {/* 🟢 FIXED: Added type="submit" to ensure click triggers form */}
                     <button 
+                      type="submit"
                       disabled={loading} 
                       className="bg-indigo-600 mt-2 rounded-xl px-4 py-3.5 text-white font-bold hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed hover:-translate-y-0.5"
                     >
@@ -160,7 +164,6 @@ function LoginContent() {
                     </button>
                 </form>
 
-                {/* Toggles */}
                 <div className="text-center text-sm text-slate-500 pt-2">
                     {view === 'login' ? (
                         <p>Don't have an account? <button onClick={() => { setView('signup'); setMessage(''); setErrorMsg(''); }} className="text-indigo-600 hover:text-indigo-800 font-bold ml-1 hover:underline">Sign up</button></p>
@@ -173,7 +176,6 @@ function LoginContent() {
             </div>
         </div>
 
-        {/* Home Link */}
         <div className="text-center mt-8">
             <Link href="/" className="text-sm font-medium text-slate-400 hover:text-slate-600 transition-colors">
                 Back to Home
