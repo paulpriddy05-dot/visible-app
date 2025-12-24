@@ -37,6 +37,11 @@ function LoginContent() {
     return () => subscription.unsubscribe();
   }, [nextUrl, router]);
 
+  // ... imports and setup ...
+
+  // Keep your existing Listener useEffect exactly as it is!
+  // It is doing the heavy lifting.
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setLoading(true);
@@ -54,6 +59,7 @@ function LoginContent() {
         });
         if (error) throw error;
         setMessage('Check your email for the confirmation link!');
+        setLoading(false); // Stop loading for signup so they can read message
       } 
       else if (view === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -62,21 +68,24 @@ function LoginContent() {
         if (error) throw error;
         setMessage('Password reset link sent! Check your email.');
         setView('login'); 
+        setLoading(false);
       } 
       else {
         // Login
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
-        // 🟢 FIX: Just push to dashboard. Do NOT call router.refresh() here.
-        router.push(nextUrl || '/dashboard');
+        // 🟢 FIX: Do NOT push here. 
+        // The useEffect listener above will see the "SIGNED_IN" event 
+        // and handle the redirect automatically.
       }
     } catch (err: any) {
       setErrorMsg(err.message);
-    } finally {
       setLoading(false);
     }
   };
+
+  // ... rest of your JSX ...
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-sans relative overflow-hidden">

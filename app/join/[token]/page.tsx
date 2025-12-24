@@ -12,35 +12,33 @@ export default function JoinPage() {
 
   useEffect(() => {
     const handleJoin = async () => {
-      // 1. Check if User is Logged In
+      // 1. Check Login
       const { data: { session } } = await supabase.auth.getSession();
 
       if (!session) {
-        // 🔴 NOT LOGGED IN: Redirect to Login, but pass the return URL
-        // You must update your Login page to look for ?next=/...
+        // Redirect to Login if not authenticated
         router.push(`/login?next=/join/${token}`);
         return;
       }
 
-      // 2. Verify Token & Fetch Dashboard
+      // 2. 🟢 SECURE CHECK: Use the SQL function to bypass RLS
       const { data: dashboard, error } = await supabase
-        .from('dashboards')
-        .select('id, title')
-        .eq('share_token', token)
+        .rpc('verify_invite_token', { token_input: token })
         .single();
 
       if (error || !dashboard) {
+        console.error("Invite Error:", error);
         setStatus("Invalid or expired invitation.");
         return;
       }
 
-      // 3. Add User to Dashboard Members
+      // 3. Add to Access List
       const { error: joinError } = await supabase
-        .from('dashboard_members')
+        .from('dashboard_access')
         .upsert({ 
           dashboard_id: dashboard.id, 
           user_id: session.user.id,
-          role: 'editor' // Default role for invited users
+          role: 'viewer' // Default role
         }, { onConflict: 'dashboard_id,user_id' });
 
       if (joinError) {
@@ -48,8 +46,7 @@ export default function JoinPage() {
         setStatus("Error joining dashboard.");
       } else {
         setStatus(`Success! Joining ${dashboard.title}...`);
-        // 4. Redirect to the Dashboard
-        setTimeout(() => router.push(`/dashboard/${dashboard.id}`), 1000);
+        router.push(`/dashboard/${dashboard.id}`);
       }
     };
 
@@ -58,7 +55,7 @@ export default function JoinPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="bg-white p-8 rounded-2xl shadow-xl text-center">
+      <div className="bg-white p-8 rounded-2xl shadow-xl text-center border border-slate-100">
         <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
         <h2 className="text-xl font-bold text-slate-800">{status}</h2>
       </div>
