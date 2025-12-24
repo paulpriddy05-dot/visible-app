@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextUrl = searchParams.get("next"); // 🟢 Capture invite link if present
+
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'login' | 'signup' | 'forgot'>('login');
   
@@ -16,6 +17,26 @@ function LoginContent() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // 🟢 NEW LISTENER: If a user is already signed in (or signs in via magic link), redirect them
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        router.push(nextUrl || '/dashboard');
+      }
+    };
+    
+    checkSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") {
+        router.push(nextUrl || '/dashboard');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [nextUrl, router]);
 
   // 1. Email/Password Handler (Sign Up, Sign In, Reset)
   const handleAuth = async (e: React.FormEvent) => {
@@ -31,7 +52,7 @@ function LoginContent() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${origin}/auth/callback` },
+          options: { emailRedirectTo: `${origin}/auth/callback?next=${nextUrl || '/dashboard'}` },
         });
         if (error) throw error;
         setMessage('Check your email for the confirmation link!');
@@ -48,7 +69,8 @@ function LoginContent() {
         // Login
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push('/dashboard');
+        // 🟢 Redirect to invite link if exists, otherwise dashboard
+        router.push(nextUrl || '/dashboard');
         router.refresh();
       }
     } catch (err: any) {
@@ -95,7 +117,7 @@ function LoginContent() {
 
             <div className="space-y-5">
                 
-                {/* EMAIL FORM (Only item remaining) */}
+                {/* EMAIL FORM */}
                 <form onSubmit={handleAuth} className="flex flex-col gap-4">
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email</label>
@@ -161,22 +183,6 @@ function LoginContent() {
       </div>
     </div>
   );
-// ... inside your component function ...
-
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const nextUrl = searchParams.get("next");
-
-  // 🟢 NEW LISTENER: If a user signs in, check if they need to go somewhere specific
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN" && nextUrl) {
-        router.push(nextUrl); // Use the invite link
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [nextUrl, router]);
 }
 
 export default function LoginPage() {
