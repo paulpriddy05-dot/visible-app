@@ -18,12 +18,11 @@ function LoginContent() {
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Listener: Redirect if already logged in
+  // 🟢 Listener: Handles redirects for OAuth, Magic Links, and Session Checks
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        console.log("Session found, redirecting to:", nextUrl || '/dashboard');
         router.push(nextUrl || '/dashboard');
       }
     };
@@ -31,7 +30,6 @@ function LoginContent() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN") {
-        console.log("User signed in, redirecting...");
         router.push(nextUrl || '/dashboard');
       }
     });
@@ -40,9 +38,7 @@ function LoginContent() {
   }, [nextUrl, router]);
 
   const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault(); // Stop page reload
-    console.log("Attempting auth:", view); // 🟢 Debug Log
-    
+    e.preventDefault(); 
     setLoading(true);
     setMessage('');
     setErrorMsg('');
@@ -69,16 +65,13 @@ function LoginContent() {
       } 
       else {
         // Login
-        console.log("Signing in with password..."); // 🟢 Debug Log
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
-        console.log("Sign in successful!"); // 🟢 Debug Log
+        // 🟢 FIX: Just push to dashboard. Do NOT call router.refresh() here.
         router.push(nextUrl || '/dashboard');
-        router.refresh();
       }
     } catch (err: any) {
-      console.error("Auth Error:", err); // 🟢 Debug Log
       setErrorMsg(err.message);
     } finally {
       setLoading(false);
@@ -154,7 +147,6 @@ function LoginContent() {
                       </div>
                     )}
                     
-                    {/* 🟢 FIXED: Added type="submit" to ensure click triggers form */}
                     <button 
                       type="submit"
                       disabled={loading} 
