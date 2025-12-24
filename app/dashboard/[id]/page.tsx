@@ -516,18 +516,21 @@ export default function DynamicDashboard() {
                 <button onClick={() => { if (!config?.share_token) return alert("Error: No token."); const link = `${window.location.origin}/join/${config.share_token}`; navigator.clipboard.writeText(link); alert("Invite Link Copied!"); }} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"><i className="fas fa-user-plus"></i><span>Invite</span></button>
                 <div className="relative"><i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i><input type="text" placeholder="find a document..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"/></div>
                 <button onClick={() => addNewCard(sections[0])} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-colors shadow-sm"><i className="fas fa-plus"></i><span>New Card</span></button>
+                
+                {/* Help / Tutorial Button */}
                 <button onClick={() => setShowTutorial(true)} className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"><i className="fas fa-question text-sm"></i></button>
+                
+                {/* 🟢 NEW SETTINGS BUTTON (Placed correctly) */}
+                <button 
+                  onClick={() => window.location.href = '/account'} 
+                  className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700" 
+                  title="Account Settings"
+                >
+                  <i className="fas fa-user-cog text-sm"></i>
+                </button>
+
                 <div className="h-6 w-px bg-slate-700 mx-1"></div> 
                 <SignOutButton />
-                // Inside the Navigation Bar, near the SignOutButton...
-
-<button 
-  onClick={() => window.location.href = '/account'} 
-  className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700" 
-  title="Account Settings"
->
-  <i className="fas fa-user-cog text-sm"></i>
-</button>
             </div>
           </div>
         </div>
