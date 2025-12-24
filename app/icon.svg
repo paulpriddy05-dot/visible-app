@@ -1,0 +1,5 @@
+<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M128 96L256 416L0 96H128Z" fill="#3b82f6" opacity="0.9"/>
+  <path d="M384 96L256 416L512 96H384Z" fill="#2563eb" />
+  <path d="M256 416L128 96L384 96L256 416Z" fill="#1d4ed8" opacity="0.6" style="mix-blend-mode:multiply"/>
+</svg>

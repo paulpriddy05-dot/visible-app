@@ -99,10 +99,9 @@ function LoginContent() {
       <div className="z-10 w-full max-w-md px-6">
         
         {/* LOGO */}
-        <div className="flex items-baseline justify-center gap-2 mb-8 select-none">
-            <span className="font-serif text-5xl font-bold text-slate-900 leading-none">V</span>
-            <span className="text-2xl font-bold text-slate-700 tracking-tight">Visible</span>
-        </div>
+<div className="flex justify-center mb-8 select-none">
+    <Logo className="h-16" /> {/* Adjust h-16 to make bigger/smaller */}
+</div>
 
         {/* LOGIN CARD */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 relative overflow-hidden">
