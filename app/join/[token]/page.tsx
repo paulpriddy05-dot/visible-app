@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import Logo from "@/components/Logo"; // 🟢 Import the Logo so it doesn't crash
 
 export default function JoinPage() {
   const params = useParams();
@@ -54,10 +55,18 @@ export default function JoinPage() {
   }, [token, router]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50">
-      <div className="bg-white p-8 rounded-2xl shadow-xl text-center border border-slate-100">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-        <h2 className="text-xl font-bold text-slate-800">{status}</h2>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 font-sans">
+      <div className="bg-white p-10 rounded-2xl shadow-xl text-center border border-slate-100 max-w-sm w-full">
+        
+        {/* 🟢 NEW LOGO HERE */}
+        <div className="flex justify-center mb-8">
+            <Logo className="h-12" />
+        </div>
+
+        <div className="animate-spin w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full mx-auto mb-6"></div>
+        
+        <h2 className="text-lg font-bold text-slate-800 mb-2">{status}</h2>
+        <p className="text-sm text-slate-400">Please wait while we verify your access.</p>
       </div>
     </div>
   );

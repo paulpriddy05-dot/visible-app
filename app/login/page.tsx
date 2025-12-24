@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import Logo from "@/components/Logo"; // 🟢 This was the missing import!
 
 function LoginContent() {
   const router = useRouter();
@@ -18,7 +19,7 @@ function LoginContent() {
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 🟢 Listener: Handles redirects for OAuth, Magic Links, and Session Checks
+  // Listener: Handles redirects for OAuth, Magic Links, and Session Checks
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -37,11 +38,6 @@ function LoginContent() {
     return () => subscription.unsubscribe();
   }, [nextUrl, router]);
 
-  // ... imports and setup ...
-
-  // Keep your existing Listener useEffect exactly as it is!
-  // It is doing the heavy lifting.
-
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setLoading(true);
@@ -59,7 +55,7 @@ function LoginContent() {
         });
         if (error) throw error;
         setMessage('Check your email for the confirmation link!');
-        setLoading(false); // Stop loading for signup so they can read message
+        setLoading(false); 
       } 
       else if (view === 'forgot') {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -75,17 +71,14 @@ function LoginContent() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
-        // 🟢 FIX: Do NOT push here. 
-        // The useEffect listener above will see the "SIGNED_IN" event 
-        // and handle the redirect automatically.
+        // Listener handles the redirect, so we just wait
+        router.push(nextUrl || '/dashboard');
       }
     } catch (err: any) {
       setErrorMsg(err.message);
       setLoading(false);
     }
   };
-
-  // ... rest of your JSX ...
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-sans relative overflow-hidden">
@@ -99,9 +92,10 @@ function LoginContent() {
       <div className="z-10 w-full max-w-md px-6">
         
         {/* LOGO */}
-<div className="flex justify-center mb-8 select-none">
-    <Logo className="h-16" /> {/* Adjust h-16 to make bigger/smaller */}
-</div>
+        <div className="flex justify-center mb-8 select-none">
+            {/* 🟢 Using the component here */}
+            <Logo className="h-16" /> 
+        </div>
 
         {/* LOGIN CARD */}
         <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8 relative overflow-hidden">
