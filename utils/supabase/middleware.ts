@@ -40,10 +40,12 @@ export async function updateSession(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // 1. PROTECTED ROUTES
-  // If user is NOT logged in and tries to access dashboard, kick them to login
-  if (path.startsWith("/dashboard") && !user) {
+  // If user is NOT logged in and tries to access dashboard OR account, kick them to login
+  if ((path.startsWith("/dashboard") || path.startsWith("/account")) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login"; 
+    // Add a redirect param so we can send them back to account after login
+    url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
 
