@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Link from "next/link"; // 🟢 Added Link Import
 
 export default function DashboardLobby() {
   const [dashboards, setDashboards] = useState<any[]>([]);
@@ -49,14 +50,11 @@ export default function DashboardLobby() {
     router.push(`/dashboard/${newId}`);
   };
 
-  // 🟢 UPDATED: Fool-Proof Delete Logic
   const handleDelete = async (e: React.MouseEvent, id: string, title: string) => {
-    e.stopPropagation(); // Stop the click from opening the dashboard
+    e.stopPropagation(); 
     
-    // 1. Safety Prompt: Require manual typing
     const confirmation = prompt(`WARNING: This will permanently delete "${title}" and ALL content inside it.\n\nTo confirm, type "DELETE" below:`);
     
-    // 2. Strict Check
     if (confirmation !== "DELETE") {
         if (confirmation !== null) { 
             alert("Deletion cancelled. You didn't type DELETE correctly."); 
@@ -64,15 +62,13 @@ export default function DashboardLobby() {
         return;
     }
 
-    // 3. Optimistic Update (Remove from UI immediately)
     setDashboards(prev => prev.filter(d => d.id !== id));
 
-    // 4. Call the Secure SQL Function
     const { error } = await supabase.rpc('delete_complete_dashboard', { p_dashboard_id: id });
 
     if (error) {
       alert("Could not delete: " + error.message);
-      fetchDashboards(); // Revert UI if failed
+      fetchDashboards(); 
     }
   };
 
@@ -82,7 +78,28 @@ export default function DashboardLobby() {
     <div className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="font-bold text-xl text-slate-800 flex items-center gap-2"><i className="fas fa-layer-group text-blue-600"></i> My Dashboards</div>
-        <button onClick={() => { supabase.auth.signOut(); router.push("/"); }} className="text-sm text-slate-500 hover:text-red-500 font-medium">Sign Out</button>
+        
+        {/* 🟢 UPDATED: Right Side Actions */}
+        <div className="flex items-center gap-4">
+            
+            {/* Account Settings Button */}
+            <Link href="/account">
+                <button 
+                    className="h-9 w-9 rounded-full bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all shadow-sm flex items-center justify-center" 
+                    title="Account Settings"
+                >
+                    <i className="fas fa-user-cog"></i>
+                </button>
+            </Link>
+
+            {/* Divider */}
+            <div className="h-6 w-px bg-slate-200"></div>
+
+            {/* Sign Out Link */}
+            <button onClick={() => { supabase.auth.signOut(); router.push("/"); }} className="text-sm text-slate-500 hover:text-red-600 font-medium transition-colors">
+                Sign Out
+            </button>
+        </div>
       </nav>
 
       <div className="max-w-5xl mx-auto py-12 px-6">
