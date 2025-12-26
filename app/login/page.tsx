@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Logo from "@/components/Logo"; // 🟢 This was the missing import!
+import Logo from "@/components/Logo"; 
 
 function LoginContent() {
   const router = useRouter();
@@ -19,7 +19,7 @@ function LoginContent() {
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // Listener: Handles redirects for OAuth, Magic Links, and Session Checks
+  // 1. Session Listener (Kept from your original code)
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -38,6 +38,7 @@ function LoginContent() {
     return () => subscription.unsubscribe();
   }, [nextUrl, router]);
 
+  // 2. Email/Password Auth Handler (Kept from your original code)
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setLoading(true);
@@ -80,6 +81,28 @@ function LoginContent() {
     }
   };
 
+  // 3. 🟢 NEW: Google OAuth Handler
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${origin}/auth/callback?next=${nextUrl || '/dashboard'}`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    });
+
+    if (error) {
+        setErrorMsg(error.message);
+        setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 font-sans relative overflow-hidden">
       
@@ -93,7 +116,6 @@ function LoginContent() {
         
         {/* LOGO */}
         <div className="flex justify-center mb-8 select-none">
-            {/* 🟢 Using the component here */}
             <Logo className="h-16" /> 
         </div>
 
@@ -115,6 +137,28 @@ function LoginContent() {
 
             <div className="space-y-5">
                 
+                {/* 🟢 NEW: Google Button (Only shown on Login/Signup, hidden on Forgot Password) */}
+                {view !== 'forgot' && (
+                    <>
+                        <button 
+                            onClick={handleGoogleLogin}
+                            type="button"
+                            className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+                        >
+                            {/* Google Icon SVG */}
+                            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-5 w-5" />
+                            <span>Continue with Google</span>
+                        </button>
+                        
+                        <div className="relative flex items-center py-2">
+                            <div className="flex-grow border-t border-slate-200"></div>
+                            <span className="flex-shrink-0 mx-4 text-slate-400 text-xs font-bold uppercase">Or</span>
+                            <div className="flex-grow border-t border-slate-200"></div>
+                        </div>
+                    </>
+                )}
+
+                {/* ORIGINAL FORM (Email/Password) */}
                 <form onSubmit={handleAuth} className="flex flex-col gap-4">
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email</label>
