@@ -602,38 +602,84 @@ export default function DynamicDashboard() {
       <nav className="bg-slate-900 text-white sticky top-0 z-40 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-3">
-              <Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors mr-2" title="Back"><i className="fas fa-arrow-left"></i></Link>
-              <div className="h-8 w-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg">{config?.title ? config.title.substring(0, 2).toUpperCase() : 'DB'}</div>
-              <span className="font-semibold text-lg tracking-tight hidden md:block">{config?.title || "Loading..."}</span>
-            </div>
-            
-            <div className="flex items-center gap-4">
-                <button 
-  onClick={() => setShowInviteModal(true)} 
-  className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"
->
-  <i className="fas fa-user-plus"></i><span>Invite</span>
-</button>
-                <div className="relative"><i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i><input type="text" placeholder="find a document..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"/></div>
-                <button onClick={() => addNewCard(sections[0])} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-colors shadow-sm"><i className="fas fa-plus"></i><span>New Card</span></button>
-                
-                {/* Help / Tutorial Button */}
-                <button onClick={() => setShowTutorial(true)} className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"><i className="fas fa-question text-sm"></i></button>
-                
-                {/* 🟢 NEW SETTINGS BUTTON (Placed correctly) */}
-                <button 
-                  onClick={() => window.location.href = '/account'} 
-                  className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700" 
-                  title="Account Settings"
-                >
-                  <i className="fas fa-user-cog text-sm"></i>
-                </button>
+  
+  {/* 🟢 LEFT GROUP: Navigation + Search + Creation */}
+  <div className="flex items-center gap-6">
+    
+    {/* 1. Logo & Title */}
+    <div className="flex items-center gap-3">
+      <Link href="/dashboard" className="text-slate-400 hover:text-white transition-colors mr-2" title="Back">
+        <i className="fas fa-arrow-left"></i>
+      </Link>
+      <div className="h-8 w-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-lg text-white">
+        {config?.title ? config.title.substring(0, 2).toUpperCase() : 'DB'}
+      </div>
+      <span className="font-semibold text-lg tracking-tight hidden md:block text-white">
+        {config?.title || "Loading..."}
+      </span>
+    </div>
 
-                <div className="h-6 w-px bg-slate-700 mx-1"></div> 
-                <SignOutButton />
-            </div>
-          </div>
+    {/* 2. Vertical Divider (Optional, adds visual separation) */}
+    <div className="h-6 w-px bg-slate-700 mx-2 hidden md:block"></div>
+
+    {/* 3. Search Bar */}
+    <div className="relative">
+      <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+      <input 
+        type="text" 
+        placeholder="find a document..." 
+        value={searchQuery} 
+        onChange={(e) => setSearchQuery(e.target.value)} 
+        className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"
+      />
+    </div>
+
+    {/* 4. New Card Button (Now Prominent on Left) */}
+    <button 
+      onClick={() => addNewCard(sections[0])} 
+      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-all shadow-sm hover:shadow-blue-500/20"
+    >
+      <i className="fas fa-plus"></i>
+      <span>New Card</span>
+    </button>
+  </div>
+
+  {/* 🔴 RIGHT GROUP: Admin + Settings + Invite */}
+  <div className="flex items-center gap-3">
+    
+    {/* Invite Button */}
+    <button 
+      onClick={() => setShowInviteModal(true)} 
+      className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm"
+    >
+      <i className="fas fa-user-plus"></i>
+      <span>Invite</span>
+    </button>
+
+    {/* Help / Tutorial */}
+    <button 
+      onClick={() => setShowTutorial(true)} 
+      className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"
+      title="Help & Tutorial"
+    >
+      <i className="fas fa-question text-sm"></i>
+    </button>
+    
+    {/* Account Settings */}
+    <button 
+      onClick={() => window.location.href = '/account'} 
+      className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700" 
+      title="Account Settings"
+    >
+      <i className="fas fa-user-cog text-sm"></i>
+    </button>
+
+    <div className="h-6 w-px bg-slate-700 mx-1"></div> 
+    
+    {/* Sign Out */}
+    <SignOutButton />
+  </div>
+</div>
         </div>
       </nav>
 
