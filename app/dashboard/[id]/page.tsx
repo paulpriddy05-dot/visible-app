@@ -11,6 +11,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
 import DashboardChat from "@/components/DashboardChat";
+import InviteModal from "@/components/InviteModal";
 // 🟢 CHARTS IMPORTS
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, 
@@ -184,6 +185,7 @@ export default function DynamicDashboard() {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const newItemTitleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
     if(!dashboardId) return;
@@ -607,7 +609,12 @@ export default function DynamicDashboard() {
             </div>
             
             <div className="flex items-center gap-4">
-                <button onClick={() => { if (!config?.share_token) return alert("Error: No token."); const link = `${window.location.origin}/join/${config.share_token}`; navigator.clipboard.writeText(link); alert("Invite Link Copied!"); }} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"><i className="fas fa-user-plus"></i><span>Invite</span></button>
+                <button 
+  onClick={() => setShowInviteModal(true)} 
+  className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm ml-2"
+>
+  <i className="fas fa-user-plus"></i><span>Invite</span>
+</button>
                 <div className="relative"><i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i><input type="text" placeholder="find a document..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-8 pr-4 py-1.5 bg-slate-800 border border-slate-700 rounded-full text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 w-48 md:w-64 transition-all"/></div>
                 <button onClick={() => addNewCard(sections[0])} className="flex items-center gap-2 px-3 py-1 text-xs font-medium rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-colors shadow-sm"><i className="fas fa-plus"></i><span>New Card</span></button>
                 
@@ -1215,7 +1222,12 @@ export default function DynamicDashboard() {
       )}
 
       <DashboardChat contextData={{ title: config?.title }} />
-
+<InviteModal 
+  isOpen={showInviteModal} 
+  onClose={() => setShowInviteModal(false)} 
+  dashboardTitle={config?.title || "Dashboard"} 
+  shareToken={config?.share_token} 
+/>
     </div>
   );
 }
