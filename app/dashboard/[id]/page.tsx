@@ -437,7 +437,59 @@ export default function DynamicDashboard() {
   const updateColor = async (newColor: string) => { if (!activeCard || !activeCard.source?.includes("manual")) return; const updatedCard = { ...activeCard, color: newColor }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ color: newColor }).eq('id', activeCard.id); };
   
   const handleOpenPicker = (bIdx: number) => { setActiveBlockIndex(bIdx); openPicker({ clientId: GOOGLE_CLIENT_ID, developerKey: GOOGLE_API_KEY, viewId: "DOCS", showUploadView: true, showUploadFolders: true, supportDrives: true, multiselect: true, callbackFunction: (data: any) => { if (data.action === "picked") addFilesToBlock(bIdx, data.docs); } }); };
-  const addFilesToBlock = async (bIdx: number, files: any[]) => { const currentBlocks = getBlocks(activeCard); const newItems = files.map(file => ({ title: file.name, url: file.url, type: 'google-drive', iconUrl: file.iconUrl })); currentBlocks[bIdx].items = [...currentBlocks[bIdx].items, ...newItems]; updateResources(currentBlocks); };
+  const addFilesToBlock = async (bIdx: number, files: any[]) => {
+    const currentBlocks = getBlocks(activeCard);
+    
+    // 1. Map the data
+    const newItems = files.map(file => ({
+      title: file.name,
+      url: file.url,
+      type: 'google-drive',
+      iconUrl: file.iconUrl,
+      mimeType: file.mimeType, // 🟢 Capture this to detect Sheets
+      fileId: file.id
+    }));
+
+    // 2. Add to the list (This part is correct)
+    currentBlocks[bIdx].items = [...currentBlocks[bIdx].items, ...newItems];
+    
+    // 3. Save the list to Supabase (This part is correct)
+    await updateResources(currentBlocks);
+
+    // 🟢 4. NEW: Auto-Detect Sheets for Visualization
+    // If the user just added a Google Sheet, ask if they want to turn on "Chart Mode"
+    const hasSheet = newItems.find(f => f.mimeType === "application/vnd.google-apps.spreadsheet");
+    
+    if (hasSheet) {
+        const confirmChart = confirm(`You added "${hasSheet.title}". \n\nDo you want to visualize this data as a chart?`);
+        if (confirmChart) {
+            // Automatically switch the card to "Chart Mode" and link the sheet
+            const updatedCard = { 
+                ...activeCard, 
+                resources: currentBlocks, // Keep the link
+                sheet_url: hasSheet.url,  // 🟢 Bind the sheet for data fetching
+                settings: { 
+                    ...activeCard.settings, 
+                    viewMode: 'table', // Start them in Table view to map columns
+                    connectedSheet: hasSheet.url 
+                }
+            };
+            
+            // Update UI & Save
+            setActiveCard(updatedCard);
+            setManualCards(prev => prev.map(c => c.id === activeCard.id ? updatedCard : c));
+            
+            // Save settings to Supabase
+            await supabase.from('Weeks').update({ 
+                settings: updatedCard.settings,
+                sheet_url: hasSheet.url // Ensure you have this column or store in settings
+            }).eq('id', activeCard.id);
+            
+            // Trigger the data fetch immediately
+            loadSheetData(hasSheet.url, updatedCard);
+        }
+    }
+  };
   const getBlocks = (card: any) => { const res = card.resources || []; if (res.length === 0) return []; if (!res[0].items) return [{ title: "General Files", items: res }]; return res; };
   const addBlock = async () => { const newBlockName = prompt("Name your new Category:"); if (!newBlockName) return; updateResources([...getBlocks(activeCard), { title: newBlockName, items: [] }]); };
   const deleteBlock = async (bIdx: number) => { if(!confirm("Delete block?")) return; updateResources(getBlocks(activeCard).filter((_: any, idx: number) => idx !== bIdx)); };
