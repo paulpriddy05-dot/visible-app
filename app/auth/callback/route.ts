@@ -5,11 +5,15 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  // ✅ Preserved: Your logic to default to dashboard if no 'next' param exists
+  
+  // Ensure we have a valid 'next' destination
   const next = searchParams.get("next") ?? "/dashboard";
 
   if (code) {
-    const cookieStore = cookies();
+    // 🟢 FIX: Add 'await' here. 
+    // Next.js 15+ requires this to be asynchronous. 
+    // In older versions, awaiting a sync value is harmless, so this is safe for both.
+    const cookieStore = await cookies();
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,24 +30,20 @@ export async function GET(request: Request) {
               );
             } catch {
               // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
+              // This can be ignored.
             }
           },
         },
       }
     );
     
-    // Exchange the code for a session
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     
     if (!error) {
-      // ✅ Preserved: Redirects to the 'next' page (Dashboard or Update Password)
-      // The `cookieStore` logic above ensures the session sticks this time!
       return NextResponse.redirect(`${origin}${next}`);
     }
   }
 
-  // ✅ Preserved: Your specific error redirect preference
+  // If there is no code or an error occurs, send them to login
   return NextResponse.redirect(`${origin}/login?error=auth-code-error`);
 }
