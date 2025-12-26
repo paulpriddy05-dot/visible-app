@@ -516,7 +516,7 @@ export default function DynamicDashboard() {
   const updateResources = async (newBlocks: any[]) => { const updatedCard = { ...activeCard, resources: newBlocks }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ resources: newBlocks }).eq('id', activeCard.id); };
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
   
-  const setActiveModal = (card: any) => { 
+  const setActiveModal = (card: any) => {
         if (!card) {
             if (isEditing && activeCard) handleSave();
             setActiveCard(null);
@@ -527,21 +527,28 @@ export default function DynamicDashboard() {
             return;
         }
 
-        if (isEditing && activeCard) handleSave(); 
-        setIsEditing(false); 
-        setIsMapping(false); 
+        if (isEditing && activeCard) handleSave();
+        setIsEditing(false);
+        setIsMapping(false);
         setAddingLinkToBlock(null);
 
-        // 🟢 PRESERVE SAVED VIEW MODE
+        // 🟢 PRESERVE SAVED VIEW MODE (CORRECTED LOGIC)
         const cardToLoad = { ...card };
 
-        if (cardToLoad.settings?.connectedSheet && !cardToLoad.data) { 
-            loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad); 
-        } else { 
-            setActiveCard(cardToLoad); 
+        // 1. Check if we have a sheet
+        // 2. 🟢 CRITICAL: Only load data if 'viewMode' is actually set (Table/Chart)
+        //    If viewMode is null (Files view), skip the fetch!
+        if (
+            cardToLoad.settings?.connectedSheet && 
+            cardToLoad.settings?.viewMode && 
+            !cardToLoad.data
+        ) {
+            loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad);
+        } else {
+            setActiveCard(cardToLoad);
         }
-        
-        setShowDocPreview(null); 
+
+        setShowDocPreview(null);
     };
 
   const toggleEditMode = () => { if(isEditing) handleSave(); setIsEditing(!isEditing); }
