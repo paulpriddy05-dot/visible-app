@@ -22,7 +22,7 @@ const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#e
 
 // 🔴 GOOGLE KEYS
 const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY || "AIzaSyCJFRHpqhRgmkqivrhaQ_bSMv7lZA7Gz5o"; 
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "1072792448216-g7c565rslebga1m964jbi86esu46k24r.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "621954773836-k7vgf85fvrbai1n1cc1dncq7mrjhobfb.apps.googleusercontent.com";
 
 const COLOR_MAP: Record<string, string> = {
   rose: "bg-rose-600", blue: "bg-blue-600", green: "bg-emerald-600",
@@ -31,10 +31,16 @@ const COLOR_MAP: Record<string, string> = {
 
 const toCSVUrl = (url: string) => {
   if (!url) return "";
-  if (url.includes("docs.google.com/spreadsheets")) {
-    return url.replace(/\/edit.*$/, '/export?format=csv');
-  }
-  return url;
+  
+  // 1. Extract ID from any Google URL
+  // Matches /d/ID or id=ID patterns
+  const match = url.match(/[-\w]{25,}/); 
+  const id = match ? match[0] : null;
+
+  if (!id) return url; // Return original if no ID found
+
+  // 2. Force it into the specific CSV export format
+  return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`;
 };
 
 // Helper to clean currency/text into numbers for charts
