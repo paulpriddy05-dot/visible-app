@@ -14,7 +14,7 @@ export async function sendInvite(email: string, dashboardTitle: string, shareTok
     const link = `https://usevisible.app/join/${shareToken}?email=${encodeURIComponent(email)}`;
     
     const { data, error } = await resend.emails.send({
-      from: 'Visible <onboarding@resend.dev>', // Default testing domain
+      from: 'Visible <support@usevisible.app>', // Default testing domain
       to: [email], // ⚠️ SEE NOTE BELOW
       subject: `You've been invited to join ${dashboardTitle} on Visible`,
       html: `
