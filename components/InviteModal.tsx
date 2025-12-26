@@ -53,15 +53,16 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
             <form onSubmit={handleSend} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email Address</label>
-                <input 
-                  type="email" 
-                  required
-                  autoFocus
-                  placeholder="colleague@example.com"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+               <input 
+  type="email" 
+  required
+  autoFocus
+  placeholder="colleague@example.com"
+  // 🟢 Added 'text-slate-900' and 'bg-white' to force readability
+  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all text-slate-900 bg-white placeholder:text-slate-400"
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+/>
               </div>
 
               {status === 'error' && (
