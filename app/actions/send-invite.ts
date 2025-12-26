@@ -2,27 +2,28 @@
 
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function sendInvite(email: string, dashboardTitle: string, shareToken: string) {
   try {
+    // 🟢 MOVED INSIDE: Prevents crash if key is missing
+    if (!process.env.RESEND_API_KEY) {
+      console.error("❌ MISSING RESEND_API_KEY");
+      return { success: false, error: "Server configuration error: Missing Email Key" };
+    }
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
     const link = `https://usevisible.app/join/${shareToken}?email=${encodeURIComponent(email)}`;
     
-    // Customize this HTML to match your brand
     const { data, error } = await resend.emails.send({
-      from: 'Visible <onboarding@resend.dev>', // Change to your domain when verified
-      to: [email],
+      from: 'Visible <onboarding@resend.dev>', // Default testing domain
+      to: [email], // ⚠️ SEE NOTE BELOW
       subject: `You've been invited to join ${dashboardTitle} on Visible`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">You're invited!</h2>
-          <p>You have been invited to collaborate on the dashboard <strong>${dashboardTitle}</strong>.</p>
-          <br/>
-          <a href="${link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-            Accept Invitation
-          </a>
+          <h2>You're invited!</h2>
+          <p>Join <strong>${dashboardTitle}</strong> on Visible.</p>
+          <a href="${link}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">Accept Invite</a>
           <br/><br/>
-          <p style="color: #666; font-size: 14px;">If the button doesn't work, copy this link:<br/>${link}</p>
+          <p style="color: #666; font-size: 12px;">Link: ${link}</p>
         </div>
       `,
     });
@@ -33,7 +34,8 @@ export async function sendInvite(email: string, dashboardTitle: string, shareTok
     }
 
     return { success: true };
-  } catch (e) {
+  } catch (e: any) {
+    console.error("Server Action Crash:", e);
     return { success: false, error: "Failed to send email" };
   }
 }
