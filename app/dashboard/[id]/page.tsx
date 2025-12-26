@@ -532,22 +532,24 @@ export default function DynamicDashboard() {
         setIsMapping(false);
         setAddingLinkToBlock(null);
 
-        // 🟢 PRESERVE SAVED VIEW MODE (CORRECTED LOGIC)
         const cardToLoad = { ...card };
 
-        // 1. Check if we have a sheet
-        // 2. 🟢 CRITICAL: Only load data if 'viewMode' is actually set (Table/Chart)
-        //    If viewMode is null (Files view), skip the fetch!
-        if (
-            cardToLoad.settings?.connectedSheet && 
-            cardToLoad.settings?.viewMode && 
-            !cardToLoad.data
-        ) {
-            loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad);
+        // 🟢 LOGIC FIX: 
+        // 1. If it's a "Manual" card (Project), ALWAYS start in 'Files View' (viewMode: null).
+        // 2. If it's a "Widget" (Pure Data), auto-load the data.
+        if (cardToLoad.source === 'manual') {
+            // Force files view initially
+            if (cardToLoad.settings) {
+                cardToLoad.settings = { ...cardToLoad.settings, viewMode: null };
+            }
         } else {
-            setActiveCard(cardToLoad);
+            // It's a Widget (Generic Sheet), so load data immediately
+            if (cardToLoad.settings?.connectedSheet && !cardToLoad.data) {
+                loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad);
+            }
         }
 
+        setActiveCard(cardToLoad);
         setShowDocPreview(null);
     };
 
@@ -560,6 +562,33 @@ export default function DynamicDashboard() {
   
   const findAttachedSheet = () => { if (!activeCard?.resources) return null; for (const block of activeCard.resources) { const sheet = block.items?.find((i:any) => i.url.includes('spreadsheets')); if (sheet) return sheet.url; } return null; };
   const attachedSheetUrl = findAttachedSheet();
+  const handleFileClick = (item: any) => {
+      // 1. Check if this file is the "Connected Sheet" for this card
+      // We check if the URL matches the one saved in settings
+      if (activeCard.settings?.connectedSheet === item.url) {
+          
+          // It IS the connected sheet! 
+          // Switch to Data View (Chart or Table depending on what was saved)
+          const targetMode = activeCard.settings.chartType ? 'chart' : 'table';
+          
+          // Update state to switch the view mode immediately
+          setActiveCard((prev: any) => ({ 
+              ...prev, 
+              settings: { ...prev.settings, viewMode: targetMode } 
+          }));
+          
+          // Trigger the data fetch
+          loadSheetData(item.url, activeCard);
+          return;
+      }
+
+      // 2. Otherwise, do the standard preview behavior (Docs/PDFs)
+      if (isGoogleDoc(item.url)) {
+          setShowDocPreview(getEmbedUrl(item.url));
+      } else {
+          window.open(item.url, '_blank');
+      }
+  };
 
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
 
@@ -1138,7 +1167,7 @@ export default function DynamicDashboard() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     {block.items.map((item: any, iIdx: number) => (
                                         <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
-                                            <div className="flex items-center gap-4 flex-1" onClick={() => isGoogleDoc(item.url) ? setShowDocPreview(getEmbedUrl(item.url)) : window.open(item.url, '_blank')}>
+                                            <div className="flex items-center gap-4 flex-1" onClick={() => handleFileClick(item)}>
                                                 <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
                                                 <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
                                             </div>
