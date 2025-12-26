@@ -1257,12 +1257,87 @@ export default function DynamicDashboard() {
         </div>
       )}
 
-      {/* 🆕 TUTORIAL MODAL */}
       {showTutorial && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-slate-900/80 backdrop-blur-sm transition-opacity">
           <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center"><div><h3 className="text-xl font-bold text-slate-800">Quick Start Guide</h3></div><button onClick={() => setShowTutorial(false)}><i className="fas fa-times"></i></button></div>
-            <div className="p-8 space-y-4"><div>Tip: Paste a Google Sheet link in the "New Widget" modal to instantly visualize it!</div></div>
+            
+            {/* Header */}
+            <div className="bg-slate-50 p-6 border-b border-slate-200 flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl shadow-sm">
+                        <i className="fas fa-book-reader"></i>
+                    </div>
+                    <div>
+                        {/* 🟢 Forces dark text even in night mode */}
+                        <h3 className="text-xl font-bold text-slate-800">Quick Start Guide</h3>
+                        <p className="text-slate-500 text-sm">Get the most out of your dashboard</p>
+                    </div>
+                </div>
+                
+                {/* 🟢 UPDATED CLOSE BUTTON: */}
+                {/* text-slate-500 ensures it is Dark Grey (visible on white) */}
+                {/* hover:bg-slate-200 adds a visible circle when you hover */}
+                <button 
+                    onClick={() => setShowTutorial(false)} 
+                    className="w-8 h-8 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-all"
+                    title="Close Guide"
+                >
+                    <i className="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            
+            {/* Body - Text colors fixed to slate-600/800 to be visible in Night Mode */}
+            <div className="p-8 space-y-8 text-slate-600">
+                
+                {/* Feature 1: Charts */}
+                <div className="flex gap-5">
+                    <div className="w-12 h-12 shrink-0 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-2xl border border-purple-100 shadow-sm">
+                        <i className="fas fa-chart-pie"></i>
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-slate-800 text-lg">Visualize Data Instantly</h4>
+                        <p className="text-sm leading-relaxed mt-1">
+                            Add a Google Sheet to any card. Open it, and click the purple <span className="font-bold text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded text-xs border border-purple-100">Visualize Data</span> button to automatically turn your rows and columns into beautiful charts.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Feature 2: Projects */}
+                <div className="flex gap-5">
+                    <div className="w-12 h-12 shrink-0 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-2xl border border-blue-100 shadow-sm">
+                        <i className="fas fa-folder-open"></i>
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-slate-800 text-lg">Organize Your Projects</h4>
+                        <p className="text-sm leading-relaxed mt-1">
+                            Create <strong>Manual Cards</strong> to group related Google Docs, PDFs, and links in one place. Drag and drop cards between sections to manage your workflow stages.
+                        </p>
+                    </div>
+                </div>
+
+                 {/* Feature 3: Team */}
+                <div className="flex gap-5">
+                    <div className="w-12 h-12 shrink-0 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-2xl border border-emerald-100 shadow-sm">
+                        <i className="fas fa-user-plus"></i>
+                    </div>
+                    <div>
+                        <h4 className="font-bold text-slate-800 text-lg">Invite Your Team</h4>
+                        <p className="text-sm leading-relaxed mt-1">
+                            Click the <strong>Invite</strong> button to add team members via email. They will get a magic link to instantly view and edit this dashboard with you.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 p-6 border-t border-slate-200 text-center">
+                <button 
+                    onClick={() => setShowTutorial(false)} 
+                    className="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-10 rounded-xl transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 active:translate-y-0"
+                >
+                    Got it, let's go!
+                </button>
+            </div>
           </div>
         </div>
       )}
