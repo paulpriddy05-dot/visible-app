@@ -208,15 +208,17 @@ export default function DynamicDashboard() {
         return;
       }
 
-      // 🟢 3. PERMISSION CHECK
+      // 🟢 3. PERMISSION CHECK (Fixed Logic)
       let userCanEdit = false;
+
       if (user) {
         // A. If Owner -> Edit Access
         if (dashConfig.user_id === user.id) {
           userCanEdit = true;
         } else {
           // B. If not Owner, check Permissions Table
-          // 🟢 FIX: Used .maybeSingle() instead of .single() to prevent 406 crash
+          // 🟢 CRITICAL FIX: Changed .single() to .maybeSingle()
+          // This prevents the "406" crash if the user hasn't been invited yet.
           const { data: perm } = await supabase
             .from('dashboard_permissions')
             .select('role')
@@ -230,12 +232,14 @@ export default function DynamicDashboard() {
         }
       }
 
-      console.log("Permissions calculated:", userCanEdit); // Debug log
+      console.log("Permissions Result:", userCanEdit); // Check console for "true"
       setCanEdit(userCanEdit);
 
       // 4. Secure Token Logic
       const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
-      if (secureToken) dashConfig.share_token = secureToken;
+      if (secureToken) {
+        dashConfig.share_token = secureToken;
+      }
 
       // 5. Load Data
       setConfig(dashConfig);
