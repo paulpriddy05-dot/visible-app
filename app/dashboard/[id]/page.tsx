@@ -264,17 +264,23 @@ export default function DynamicDashboard() {
     try {
       const csvUrl = toCSVUrl(url);
       const response = await fetch(csvUrl);
+
+      // 🟢 FIX: Handle 404 errors gracefully
+      if (!response.ok) {
+        console.warn(`⚠️ Could not load sheet for "${card.title}": ${response.status}`);
+        return;
+      }
+
       const csvText = await response.text();
       Papa.parse(csvText, {
         header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(),
         complete: (results: any) => {
           const enrichedCard = { ...card, data: results.data, columns: results.meta.fields, rowCount: results.data.length, sheet_url: url, settings: { ...card.settings, connectedSheet: url } };
-          // Using existing card state logic
           setActiveCard(enrichedCard);
           setManualCards(prev => prev.map(c => c.id === card.id ? enrichedCard : c));
         }
       });
-    } catch (e) { console.error("Failed to load sheet data", e); alert("Could not load sheet. Ensure it is 'Shared > Anyone with the link'."); }
+    } catch (e) { console.error("Failed to load sheet data", e); }
   };
 
   const fetchGenericWidgets = async () => {
@@ -312,44 +318,41 @@ export default function DynamicDashboard() {
   };
 
   const fetchSheetData = async (currentConfig: any) => {
-    // 1. Fetch Weekly Schedule Sheet
+    // 1. Fetch Weekly Schedule
     if (currentConfig.sheet_url_schedule) {
       try {
         const response = await fetch(currentConfig.sheet_url_schedule);
-        if (!response.ok) throw new Error(`Status: ${response.status}`);
+        if (response.ok) { // 🟢 Check OK before parsing
+          Papa.parse(await response.text(), {
+            header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
+              const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({ id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet", category: "Weekly Schedule" }));
+              setScheduleCards(cards);
+            }
+          });
+        } else {
+          console.warn("⚠️ Schedule Sheet 404 (Not Found)");
+        }
+      } catch (e) { console.error("Schedule Fetch Error", e); }
+    }
 
-        const csvText = await response.text();
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: (h: string) => h.trim(),
-          complete: (results: any) => {
-            // Check for duplicates (Grok's suggestion)
-            const headers = results.meta.fields || [];
-            const hasDuplicates = new Set(headers).size !== headers.length;
-            if (hasDuplicates) console.warn("⚠️ Schedule Sheet has duplicate headers. Some data may be lost.");
-
-            const cards = results.data
-              .filter((row: any) => row["Week Label"])
-              .map((row: any, index: number) => ({
-                id: `sheet1-${index}`,
-                title: row["Week Label"],
-                date_label: row["Date"] || "",
-                scripture: row["Passage"] || "",
-                worship: row["Song List"] || "",
-                response_song: row["Response Song"] || "",
-                offering: row["Offering"] || "",
-                resources: [],
-                color: row["Color"] ? row["Color"].toLowerCase() : "purple",
-                source: "google-sheet",
-                category: "Weekly Schedule"
-              }));
-            setScheduleCards(cards);
-          }
-        });
-      } catch (error) {
-        console.error("❌ Failed to load Schedule Sheet:", error);
-      }
+    // 2. Fetch Missions
+    if (currentConfig.sheet_url_missions) {
+      try {
+        const response = await fetch(currentConfig.sheet_url_missions);
+        if (response.ok) { // 🟢 Check OK before parsing
+          Papa.parse(await response.text(), {
+            header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
+              const data = results.data;
+              if (data.length > 0) {
+                const row1 = data[0];
+                setMissionCard({ id: 'missions-status', title: "Missions Status", totalNonStaff: row1["Total Non-Staff"], totalStaff: row1["Total Staff"], percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"], percentStaff: row1["% of Staff on Trips"], totalOpen: row1["Open Spots"], upcomingLoc: data.find((r: any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD", upcomingDate: data.find((r: any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD", upcomingOpen: data.find((r: any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0", upcomingStatus: data.find((r: any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open", trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"), color: "teal", source: "missions-dashboard", category: "Missions" });
+              }
+            }
+          });
+        } else {
+          console.warn("⚠️ Missions Sheet 404 (Not Found)");
+        }
+      } catch (e) { console.error("Missions Fetch Error", e); }
     }
 
     // 2. Fetch Missions Sheet
