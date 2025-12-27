@@ -30,6 +30,8 @@ const COLOR_MAP: Record<string, string> = {
   rose: "bg-rose-600", blue: "bg-blue-600", green: "bg-emerald-600",
   grey: "bg-purple-600", orange: "bg-orange-600", teal: "bg-cyan-600", slate: "bg-slate-700",
 };
+// 🟢 FIX: Defined globally here
+const getBgColor = (c: string) => COLOR_MAP[c] || "bg-slate-700";
 
 const toCSVUrl = (url: string) => {
   if (!url) return "";
@@ -794,7 +796,11 @@ export default function DynamicDashboard() {
 
             {/* 3. DYNAMIC CUSTOM SECTIONS */}
             {sections.map((section) => {
-                const sectionCards = [...manualCards, ...genericWidgets].filter(c => {
+                // 🟢 FIX: Add safety checks (|| []) so it doesn't crash if data is loading
+                const safeManual = manualCards || [];
+                const safeWidgets = genericWidgets || [];
+
+                const sectionCards = [...safeManual, ...safeWidgets].filter(c => {
                     const cat = c.settings?.category || "Planning & Resources"; 
                     return cat === section;
                 }).filter(doesCardMatch);
@@ -820,14 +826,22 @@ export default function DynamicDashboard() {
                         </div>
                         <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-transparent p-2 transition-colors hover:border-slate-200/20">
-                                {sectionCards.map((card) => ( <SortableCard key={card.id} card={card} onClick={setActiveModal} /> ))}
+                                {sectionCards.map((card) => ( 
+                                    <SortableCard 
+                                        key={card.id} 
+                                        card={card} 
+                                        onClick={setActiveModal} 
+                                        // 🟢 Note: getBgColor is global now, so we don't pass it as a prop
+                                    /> 
+                                ))}
                                 {sectionCards.length === 0 && ( <div className="col-span-full flex items-center justify-center text-slate-300 text-sm font-medium italic h-24">Drop cards here</div> )}
                             </div>
                         </SortableContext>
                     </div>
                 );
             })}
-             <DragOverlay>
+            
+            <DragOverlay>
                 {activeDragItem ? (
                      <div className={`rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 shadow-2xl scale-105 ${getBgColor(activeDragItem.color || 'rose')}`}>
                         <h4 className="font-bold text-xl tracking-wide">{activeDragItem.title}</h4>
