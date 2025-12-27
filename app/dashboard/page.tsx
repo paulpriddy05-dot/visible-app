@@ -9,22 +9,16 @@ import Link from "next/link";
 export default function DashboardLobby() {
   const [dashboards, setDashboards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  // 🟢 1. Track the current user's ID
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const router = useRouter();
 
   const fetchDashboards = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/"); return; }
 
-    // 🟢 2. Save current ID for permissions check
-    setCurrentUserId(user.id);
-
-    // Fetch dashboards this user has access to
-    // We select (*) to get the dashboard's 'user_id' (The Owner)
+    // 🟢 1. Fetch dashboards AND the 'role' from the access table
     const { data, error } = await supabase
       .from('dashboards')
-      .select('*, dashboard_access!inner(user_id)')
+      .select('*, dashboard_access!inner(role)') // Get the role (owner/viewer)
       .eq('dashboard_access.user_id', user.id);
 
     if (error) console.error("Error fetching dashboards:", error);
@@ -85,10 +79,7 @@ export default function DashboardLobby() {
       <nav className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10">
         <div className="font-bold text-xl text-slate-800 flex items-center gap-2"><i className="fas fa-layer-group text-blue-600"></i> My Dashboards</div>
 
-        {/* Right Side Actions */}
         <div className="flex items-center gap-4">
-
-          {/* Account Settings Button */}
           <Link href="/account">
             <button
               className="h-9 w-9 rounded-full bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-blue-600 transition-all shadow-sm flex items-center justify-center"
@@ -97,11 +88,7 @@ export default function DashboardLobby() {
               <i className="fas fa-user-cog"></i>
             </button>
           </Link>
-
-          {/* Divider */}
           <div className="h-6 w-px bg-slate-200"></div>
-
-          {/* Sign Out Link */}
           <button onClick={() => { supabase.auth.signOut(); router.push("/"); }} className="text-sm text-slate-500 hover:text-red-600 font-medium transition-colors">
             Sign Out
           </button>
@@ -112,13 +99,15 @@ export default function DashboardLobby() {
         <h2 className="text-2xl font-bold text-slate-800 mb-6">Select a Dashboard</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {dashboards.map((dash) => {
-            // 🟢 3. Determine if I am the owner
-            const isOwner = dash.user_id === currentUserId;
+            // 🟢 2. Check the Role directly from the access table
+            // Supabase returns an array for joins, so we take the first item
+            const accessData = Array.isArray(dash.dashboard_access) ? dash.dashboard_access[0] : dash.dashboard_access;
+            const isOwner = accessData?.role === 'owner';
 
             return (
               <div key={dash.id} onClick={() => router.push(`/dashboard/${dash.id}`)} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-400 cursor-pointer transition-all group relative">
 
-                {/* 🟢 4. Only show Delete Button if Owner */}
+                {/* Only show Delete Button if Owner */}
                 {isOwner && (
                   <button
                     onClick={(e) => handleDelete(e, dash.id, dash.title)}
@@ -134,7 +123,6 @@ export default function DashboardLobby() {
                 </div>
                 <h3 className="font-bold text-lg text-slate-800 truncate pr-6">{dash.title}</h3>
 
-                {/* 🟢 5. Dynamic Status Label */}
                 <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
                   {isOwner ? (
                     <><i className="fas fa-crown text-amber-400"></i> Owner</>
@@ -146,7 +134,7 @@ export default function DashboardLobby() {
             );
           })}
 
-          {/* Create New Dashboard (Always visible) */}
+          {/* Create New Dashboard */}
           <div onClick={handleCreate} className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 cursor-pointer transition-all min-h-[180px]">
             <i className="fas fa-plus text-3xl mb-2"></i>
             <span className="font-medium">Create New Dashboard</span>
