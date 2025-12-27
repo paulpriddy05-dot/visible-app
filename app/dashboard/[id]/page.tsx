@@ -157,7 +157,7 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 export default function DynamicDashboard() {
   const params = useParams();
   const dashboardId = params.id as string;
-  const [canEdit, setCanEdit] = useState(false);
+
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [scheduleCards, setScheduleCards] = useState<any[]>([]);
@@ -192,10 +192,7 @@ export default function DynamicDashboard() {
     const initDashboard = async () => {
       setLoading(true);
 
-      // 1. Get User Session
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // 2. Get Dashboard Config
+      // 1. 🟢 SECURE FETCH: This gets the dashboard config
       const { data: dashConfig, error } = await supabase
         .from('dashboards')
         .select('*')
@@ -204,40 +201,27 @@ export default function DynamicDashboard() {
 
       if (error || !dashConfig) {
         console.error("Dashboard Load Error:", error);
+        // Optional: Handle 404
         return;
       }
 
-      // 🟢 3. PERMISSION LOGIC: Determine if user can edit
-      let userCanEdit = false;
+      // 2. 🟢 GUARANTEE TOKEN: Call the secure RPC we just made
+      // This ensures the token exists in the DB and matches what we use here.
+      const { data: secureToken } = await supabase
+        .rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
 
-      if (user) {
-        // A. If they are the OWNER (creator), they can edit
-        if (dashConfig.user_id === user.id) {
-          userCanEdit = true;
-        } else {
-          // B. If not owner, check the 'dashboard_permissions' table
-          const { data: perm } = await supabase
-            .from('dashboard_permissions')
-            .select('role')
-            .eq('dashboard_id', dashboardId)
-            .eq('user_email', user.email)
-            .single();
-
-          // C. If role is 'edit', they can edit
-          if (perm?.role === 'edit') {
-            userCanEdit = true;
-          }
-        }
+      if (secureToken) {
+        dashConfig.share_token = secureToken; // Sync frontend with backend
       }
-      setCanEdit(userCanEdit); // <--- Save this to state
 
-      // ... (The rest of your existing fetch logic goes here) ...
-      const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
-      if (secureToken) dashConfig.share_token = secureToken;
-
+      // 3. Set Config & Continue
       setConfig(dashConfig);
-      if (dashConfig.settings?.sections) setSections(dashConfig.settings.sections);
-      // ... rest of your fetches ...
+
+      // ... (Keep your existing setups) ...
+      if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
+      if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
+      if (dashConfig.settings?.missionsTitle) { setMissionsTitle(dashConfig.settings.missionsTitle); }
+
       await fetchSheetData(dashConfig);
       await fetchManualCards();
       await fetchGenericWidgets();
@@ -679,16 +663,14 @@ export default function DynamicDashboard() {
                 />
               </div>
 
-              {/* 4. New Card Button (Only show if canEdit) */}
-              {canEdit && (
-                <button
-                  onClick={() => addNewCard(sections[0])}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-all shadow-sm hover:shadow-blue-500/20"
-                >
-                  <i className="fas fa-plus"></i>
-                  <span>New Card</span>
-                </button>
-              )}
+              {/* 4. New Card Button (Now Prominent on Left) */}
+              <button
+                onClick={() => addNewCard(sections[0])}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-all shadow-sm hover:shadow-blue-500/20"
+              >
+                <i className="fas fa-plus"></i>
+                <span>New Card</span>
+              </button>
             </div>
 
             {/* 🔴 RIGHT GROUP: Admin + Settings + Invite */}
@@ -730,32 +712,18 @@ export default function DynamicDashboard() {
         </div>
       </nav>
 
-
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
 
-        <DndContext
-          sensors={canEdit ? sensors : []} // 🟢 Disable sensors if viewer
-        // ... rest of props
-        >
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
 
           {/* 1. WEEKLY SCHEDULE */}
           {scheduleCards.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between group">
-                <div
-                  className={`flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 transition-colors ${canEdit ? "cursor-pointer hover:text-blue-500" : "cursor-default"}`}
-                  onClick={() => canEdit && renameSection(scheduleTitle, 'schedule')}
-                >
-                  <i className="fas fa-calendar-alt"></i> {scheduleTitle}
-                  {/* 🟢 Hide Pen if Viewer */}
-                  {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
+                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(scheduleTitle, 'schedule')}>
+                  <i className="fas fa-calendar-alt"></i> {scheduleTitle} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
                 </div>
-
-                {/* 🟢 Hide Add Button if Viewer */}
-                {canEdit && (
-                  <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
-                )}
+                <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
               </div>
               <SortableContext items={weeklyScheduleItems} strategy={rectSortingStrategy} id="Weekly Schedule">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
@@ -1274,30 +1242,10 @@ export default function DynamicDashboard() {
                 !showDocPreview && (
                   <div className="p-0">
                     <div className="p-8">
-                      {/* 🟢 1. Only show Add Buttons if Editing AND has Permission */}
-                      {isEditing && canEdit && (
-                        <div className="flex flex-col gap-3">
-                          {getBlocks(activeCard).length === 0 && (
-                            <button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm">
-                              <i className="fas fa-plus-circle mr-2"></i> Start Adding Files
-                            </button>
-                          )}
-                          <button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">
-                            + Create New Category Block
-                          </button>
-                        </div>
-                      )}
-
+                      {isEditing && (<div className="flex flex-col gap-3">{getBlocks(activeCard).length === 0 && (<button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm"><i className="fas fa-plus-circle mr-2"></i> Start Adding Files</button>)}<button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">+ Create New Category Block</button></div>)}
                       {getBlocks(activeCard).map((block: any, bIdx: number) => (
                         <div key={bIdx} className="mb-8">
-                          <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>
-
-                            {/* 🟢 2. Only show Delete Block if Editing AND has Permission */}
-                            {isEditing && canEdit && (
-                              <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>
-                            )}
-                          </div>
+                          <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1"><h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>{isEditing && <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>}</div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {block.items.map((item: any, iIdx: number) => (
                               <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
@@ -1305,11 +1253,7 @@ export default function DynamicDashboard() {
                                   <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
                                   <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
                                 </div>
-
-                                {/* 🟢 3. Only show Delete Item (X) if Editing AND has Permission */}
-                                {isEditing && canEdit && (
-                                  <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>
-                                )}
+                                {isEditing && <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>}
                               </div>
                             ))}
                           </div>
