@@ -191,12 +191,41 @@ export default function DynamicDashboard() {
     if(!dashboardId) return;
     const initDashboard = async () => {
         setLoading(true);
-        const { data: dashConfig } = await supabase.from('dashboards').select('*').eq('id', dashboardId).single();
-        if (!dashConfig) return alert("Dashboard not found");
+        
+        // 1. Fetch the Dashboard
+        const { data: dashConfig, error } = await supabase
+            .from('dashboards')
+            .select('*')
+            .eq('id', dashboardId)
+            .single();
+
+        if (error || !dashConfig) {
+            console.error("Dashboard Load Error:", error);
+            return alert("Dashboard not found");
+        }
+
+        // 🟢 SELF-HEALING FIX: 
+        // If the database returns a dashboard with NO token, create one immediately.
+        if (!dashConfig.share_token) {
+            console.log("🩹 Repairing missing token...");
+            const newToken = crypto.randomUUID(); // Generates a secure ID
+            
+            // Save to DB
+            await supabase
+                .from('dashboards')
+                .update({ share_token: newToken })
+                .eq('id', dashboardId);
+            
+            // Update local state immediately so the Invite button works NOW
+            dashConfig.share_token = newToken; 
+        }
+
+        // 2. Set Config & Continue
         setConfig(dashConfig);
         if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
         if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
         if (dashConfig.settings?.missionsTitle) { setMissionsTitle(dashConfig.settings.missionsTitle); }
+        
         await fetchSheetData(dashConfig);
         await fetchManualCards();
         await fetchGenericWidgets(); 
