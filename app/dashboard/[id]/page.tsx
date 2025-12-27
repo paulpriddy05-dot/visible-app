@@ -312,26 +312,84 @@ export default function DynamicDashboard() {
   };
 
   const fetchSheetData = async (currentConfig: any) => {
+    // 1. Fetch Weekly Schedule Sheet
     if (currentConfig.sheet_url_schedule) {
-      const response = await fetch(currentConfig.sheet_url_schedule);
-      Papa.parse(await response.text(), {
-        header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
-          const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({ id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet", category: "Weekly Schedule" }));
-          setScheduleCards(cards);
-        }
-      });
-    }
-    if (currentConfig.sheet_url_missions) {
-      const response = await fetch(currentConfig.sheet_url_missions);
-      Papa.parse(await response.text(), {
-        header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
-          const data = results.data;
-          if (data.length > 0) {
-            const row1 = data[0];
-            setMissionCard({ id: 'missions-status', title: "Missions Status", totalNonStaff: row1["Total Non-Staff"], totalStaff: row1["Total Staff"], percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"], percentStaff: row1["% of Staff on Trips"], totalOpen: row1["Open Spots"], upcomingLoc: data.find((r: any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD", upcomingDate: data.find((r: any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD", upcomingOpen: data.find((r: any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0", upcomingStatus: data.find((r: any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open", trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"), color: "teal", source: "missions-dashboard", category: "Missions" });
+      try {
+        const response = await fetch(currentConfig.sheet_url_schedule);
+        if (!response.ok) throw new Error(`Status: ${response.status}`);
+
+        const csvText = await response.text();
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (h: string) => h.trim(),
+          complete: (results: any) => {
+            // Check for duplicates (Grok's suggestion)
+            const headers = results.meta.fields || [];
+            const hasDuplicates = new Set(headers).size !== headers.length;
+            if (hasDuplicates) console.warn("⚠️ Schedule Sheet has duplicate headers. Some data may be lost.");
+
+            const cards = results.data
+              .filter((row: any) => row["Week Label"])
+              .map((row: any, index: number) => ({
+                id: `sheet1-${index}`,
+                title: row["Week Label"],
+                date_label: row["Date"] || "",
+                scripture: row["Passage"] || "",
+                worship: row["Song List"] || "",
+                response_song: row["Response Song"] || "",
+                offering: row["Offering"] || "",
+                resources: [],
+                color: row["Color"] ? row["Color"].toLowerCase() : "purple",
+                source: "google-sheet",
+                category: "Weekly Schedule"
+              }));
+            setScheduleCards(cards);
           }
-        }
-      });
+        });
+      } catch (error) {
+        console.error("❌ Failed to load Schedule Sheet:", error);
+      }
+    }
+
+    // 2. Fetch Missions Sheet
+    if (currentConfig.sheet_url_missions) {
+      try {
+        const response = await fetch(currentConfig.sheet_url_missions);
+        if (!response.ok) throw new Error(`Status: ${response.status}`);
+
+        const csvText = await response.text();
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          transformHeader: (h: string) => h.trim(),
+          complete: (results: any) => {
+            const data = results.data;
+            if (data.length > 0) {
+              const row1 = data[0];
+              setMissionCard({
+                id: 'missions-status',
+                title: "Missions Status",
+                totalNonStaff: row1["Total Non-Staff"],
+                totalStaff: row1["Total Staff"],
+                percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"],
+                percentStaff: row1["% of Staff on Trips"],
+                totalOpen: row1["Open Spots"],
+                upcomingLoc: data.find((r: any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD",
+                upcomingDate: data.find((r: any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD",
+                upcomingOpen: data.find((r: any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0",
+                upcomingStatus: data.find((r: any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open",
+                trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"),
+                color: "teal",
+                source: "missions-dashboard",
+                category: "Missions"
+              });
+            }
+          }
+        });
+      } catch (error) {
+        console.error("❌ Failed to load Missions Sheet:", error);
+      }
     }
   };
 
