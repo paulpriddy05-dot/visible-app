@@ -681,11 +681,6 @@ export default function DynamicDashboard() {
       <span>Invite</span>
     </button>
 
-    {/* TEMPORARY DEBUGGER */}
-<div className="fixed bottom-4 right-4 bg-black text-white p-4 rounded-lg z-50 text-xs font-mono">
-  DEBUG TOKEN: {config?.share_token || "NULL"}
-</div>
-
     {/* Help / Tutorial */}
     <button 
       onClick={() => setShowTutorial(true)} 
