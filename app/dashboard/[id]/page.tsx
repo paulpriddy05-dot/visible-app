@@ -208,29 +208,36 @@ export default function DynamicDashboard() {
         return;
       }
 
-      // 🟢 3. PERMISSION CHECK (Fixed Logic)
+      // 🟢 3. BULLETPROOF PERMISSION CHECK
       let userCanEdit = false;
 
       if (user) {
-        // A. If Owner -> Edit Access
+        console.log("Checking permissions for:", user.email);
+
+        // A. Check Owner
         if (dashConfig.user_id === user.id) {
+          console.log("✅ User is OWNER");
           userCanEdit = true;
         } else {
-          // B. If not Owner, check Permissions Table
-          const { data: perm } = await supabase
+          // B. Check Permissions Table (Using a List to prevent crashes)
+          const { data: permList, error: permError } = await supabase
             .from('dashboard_permissions')
             .select('role')
             .eq('dashboard_id', dashboardId)
             .eq('user_email', user.email)
-            .maybeSingle(); // <--- 🟢 CRITICAL FIX: Changed from .single() to .maybeSingle()
+            .limit(1); // Get a list of max 1 item
 
-          if (perm?.role === 'edit') {
+          if (permError) {
+            console.error("Permission Check Failed:", permError);
+          } else if (permList && permList.length > 0 && permList[0].role === 'edit') {
+            console.log("✅ User is EDITOR");
             userCanEdit = true;
+          } else {
+            console.log("❌ User is VIEWER (or no access found)");
           }
         }
       }
 
-      console.log("Permissions Result:", userCanEdit);
       setCanEdit(userCanEdit);
 
       // 4. Secure Token Logic
