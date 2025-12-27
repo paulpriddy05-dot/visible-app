@@ -12,6 +12,7 @@ import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
 import DashboardChat from "@/components/DashboardChat";
 import InviteModal from "@/components/InviteModal";
+import ManageAccessModal from "@/components/ManageAccessModal";
 // 🟢 CHARTS IMPORTS
 import { 
   BarChart, Bar, LineChart, Line, AreaChart, Area, 
@@ -51,6 +52,11 @@ const cleanNumber = (val: any) => {
   const clean = val.toString().replace(/[$,\s]/g, '');
   return parseFloat(clean) || 0;
 };
+const [showAccessModal, setShowAccessModal] = useState(false);
+const [currentUserRole, setCurrentUserRole] = useState<'owner' | 'editor' | 'viewer'>('viewer');
+const [currentUserId, setCurrentUserId] = useState<string>("");
+
+
 
 const renderCellContent = (content: string) => {
   if (!content) return <span className="text-slate-300">-</span>;
@@ -181,7 +187,14 @@ export default function DynamicDashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  // 1. Define the sensors normally
+const standardSensors = useSensors(
+  useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+);
+
+// 2. 🟢 PROTECTION: If I am a viewer, turn off sensors (disable drag)
+const sensors = currentUserRole === 'viewer' ? undefined : standardSensors;
   const titleRef = useRef<HTMLHeadingElement>(null);
   const newItemTitleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -204,6 +217,20 @@ export default function DynamicDashboard() {
             // Optional: Handle 404
             return;
         }
+        // Inside initDashboard...
+const { data: { user } } = await supabase.auth.getUser();
+if(user) {
+    setCurrentUserId(user.id);
+    // Check my specific role
+    const { data: myAccess } = await supabase
+       .from('dashboard_access')
+       .select('role')
+       .eq('dashboard_id', dashboardId)
+       .eq('user_id', user.id)
+       .single();
+
+    if (myAccess) setCurrentUserRole(myAccess.role);
+}
 
         // 2. 🟢 GUARANTEE TOKEN: Call the secure RPC we just made
         // This ensures the token exists in the DB and matches what we use here.
@@ -681,6 +708,17 @@ export default function DynamicDashboard() {
       <span>Invite</span>
     </button>
 
+    {/* Only Owners can manage access */}
+{currentUserRole === 'owner' && (
+  <button 
+    onClick={() => setShowAccessModal(true)}
+    className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"
+    title="Manage Access"
+  >
+    <i className="fas fa-users-cog text-sm"></i>
+  </button>
+)}
+
     {/* Help / Tutorial */}
     <button 
       onClick={() => setShowTutorial(true)} 
@@ -863,16 +901,22 @@ export default function DynamicDashboard() {
                  {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
                     <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
                  )}
-                 {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
-                 {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && (
-                  <button 
-                    onClick={() => deleteCard(activeCard)} 
-                    className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
-                    title="Delete Card"
-                  >
-                    <i className="fas fa-trash"></i>
-                  </button>
-                )}
+                 {/* 🟢 PROTECTION: Only show Edit button if NOT a viewer */}
+{!showDocPreview && isCardEditable(activeCard) && currentUserRole !== 'viewer' && (
+    <button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}>
+        <i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}
+    </button>
+)}
+                 {/* 🟢 PROTECTION: Hide delete button if viewer */}
+{!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && currentUserRole !== 'viewer' && (
+  <button 
+    onClick={() => deleteCard(activeCard)} 
+    className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
+    title="Delete Card"
+  >
+    <i className="fas fa-trash"></i>
+  </button>
+)}
                  {showDocPreview && <button onClick={() => setShowDocPreview(null)} className="bg-white/20 px-3 py-1 rounded text-sm font-medium"><i className="fas fa-arrow-left mr-2"></i> Back</button>}
                  <button onClick={() => setActiveModal(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><i className="fas fa-times text-xl"></i></button>
               </div>
@@ -1373,6 +1417,12 @@ export default function DynamicDashboard() {
   onClose={() => setShowInviteModal(false)} 
   dashboardTitle={config?.title || "Dashboard"} 
   shareToken={config?.share_token} 
+/>
+<ManageAccessModal 
+  isOpen={showAccessModal}
+  onClose={() => setShowAccessModal(false)}
+  dashboardId={dashboardId}
+  currentUserId={currentUserId}
 />
     </div>
   );
