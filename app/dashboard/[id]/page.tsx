@@ -35,11 +35,10 @@ const toCSVUrl = (url: string) => {
   if (!url) return "";
   
   // 1. Extract ID from any Google URL
-  // Matches /d/ID or id=ID patterns
   const match = url.match(/[-\w]{25,}/); 
   const id = match ? match[0] : null;
 
-  if (!id) return url; // Return original if no ID found
+  if (!id) return url; 
 
   // 2. Force it into the specific CSV export format
   return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv`;
@@ -52,11 +51,6 @@ const cleanNumber = (val: any) => {
   const clean = val.toString().replace(/[$,\s]/g, '');
   return parseFloat(clean) || 0;
 };
-const [showAccessModal, setShowAccessModal] = useState(false);
-const [currentUserRole, setCurrentUserRole] = useState<'owner' | 'editor' | 'viewer'>('viewer');
-const [currentUserId, setCurrentUserId] = useState<string>("");
-
-
 
 const renderCellContent = (content: string) => {
   if (!content) return <span className="text-slate-300">-</span>;
@@ -70,7 +64,6 @@ const renderCellContent = (content: string) => {
 
 // --- SUB-COMPONENT: Sortable Manual Card ---
 function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
-  // Performance: Exclude heavy data from dnd-kit tracking to prevent glitches
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ 
       id: card.id, 
       data: { id: card.id, title: card.title, settings: card.settings, type: card.type } 
@@ -84,13 +77,11 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 
   const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', opacity: isDragging ? 0.3 : 1 };
   
-  // 🟢 LOGIC: Only show chart on dashboard if explicitly enabled
   const showMiniChart = card.settings?.viewMode === 'chart' && 
                         card.data && 
                         card.settings?.yAxisCol && 
                         card.settings?.showOnDashboard;
 
-  // 🟢 MEMO: Prepare clean data for the mini-chart
   const miniChartData = useMemo(() => {
     if (!showMiniChart || !card.data) return [];
     return card.data.slice(0, 15).map((d: any) => ({
@@ -164,11 +155,16 @@ export default function DynamicDashboard() {
   const params = useParams();
   const dashboardId = params.id as string;
   
+  // 🟢 MOVED THESE INSIDE THE COMPONENT TO FIX ERROR #321
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<'owner' | 'editor' | 'viewer'>('viewer');
+  const [currentUserId, setCurrentUserId] = useState<string>("");
+
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [scheduleCards, setScheduleCards] = useState<any[]>([]); 
   const [missionCard, setMissionCard] = useState<any | null>(null); 
-  const [manualCards, setManualCards] = useState<any[]>([]);       
+  const [manualCards, setManualCards] = useState<any[]>([]);        
   const [genericWidgets, setGenericWidgets] = useState<any[]>([]);
   const [sections, setSections] = useState<string[]>(["Planning & Resources"]); 
   
@@ -188,13 +184,14 @@ export default function DynamicDashboard() {
   const [activeDragItem, setActiveDragItem] = useState<any>(null);
 
   // 1. Define the sensors normally
-const standardSensors = useSensors(
-  useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-);
+  const standardSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
-// 2. 🟢 PROTECTION: If I am a viewer, turn off sensors (disable drag)
-const sensors = currentUserRole === 'viewer' ? undefined : standardSensors;
+  // 2. 🟢 PROTECTION: If I am a viewer, turn off sensors (disable drag)
+  const sensors = currentUserRole === 'viewer' ? undefined : standardSensors;
+  
   const titleRef = useRef<HTMLHeadingElement>(null);
   const newItemTitleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -217,20 +214,21 @@ const sensors = currentUserRole === 'viewer' ? undefined : standardSensors;
             // Optional: Handle 404
             return;
         }
-        // Inside initDashboard...
-const { data: { user } } = await supabase.auth.getUser();
-if(user) {
-    setCurrentUserId(user.id);
-    // Check my specific role
-    const { data: myAccess } = await supabase
-       .from('dashboard_access')
-       .select('role')
-       .eq('dashboard_id', dashboardId)
-       .eq('user_id', user.id)
-       .single();
 
-    if (myAccess) setCurrentUserRole(myAccess.role);
-}
+        // Check user role
+        const { data: { user } } = await supabase.auth.getUser();
+        if(user) {
+            setCurrentUserId(user.id);
+            // Check my specific role
+            const { data: myAccess } = await supabase
+               .from('dashboard_access')
+               .select('role')
+               .eq('dashboard_id', dashboardId)
+               .eq('user_id', user.id)
+               .single();
+
+            if (myAccess) setCurrentUserRole(myAccess.role);
+        }
 
         // 2. 🟢 GUARANTEE TOKEN: Call the secure RPC we just made
         // This ensures the token exists in the DB and matches what we use here.
@@ -321,8 +319,8 @@ if(user) {
         Papa.parse(await response.text(), { header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
                 const data = results.data;
                 if (data.length > 0) {
-                     const row1 = data[0]; 
-                     setMissionCard({ id: 'missions-status', title: "Missions Status", totalNonStaff: row1["Total Non-Staff"], totalStaff: row1["Total Staff"], percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"], percentStaff: row1["% of Staff on Trips"], totalOpen: row1["Open Spots"], upcomingLoc: data.find((r:any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD", upcomingDate: data.find((r:any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD", upcomingOpen: data.find((r:any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0", upcomingStatus: data.find((r:any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open", trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"), color: "teal", source: "missions-dashboard", category: "Missions" });
+                      const row1 = data[0]; 
+                      setMissionCard({ id: 'missions-status', title: "Missions Status", totalNonStaff: row1["Total Non-Staff"], totalStaff: row1["Total Staff"], percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"], percentStaff: row1["% of Staff on Trips"], totalOpen: row1["Open Spots"], upcomingLoc: data.find((r:any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD", upcomingDate: data.find((r:any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD", upcomingOpen: data.find((r:any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0", upcomingStatus: data.find((r:any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open", trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"), color: "teal", source: "missions-dashboard", category: "Missions" });
                 }
             }});
     }
@@ -608,7 +606,6 @@ if(user) {
     };
 
   const toggleEditMode = () => { if(isEditing) handleSave(); setIsEditing(!isEditing); }
-  const getBgColor = (c: string) => COLOR_MAP[c] || "bg-slate-700";
   const isGoogleDoc = (url: string) => url.includes("docs.google.com") || url.includes("drive.google.com");
   const getEmbedUrl = (url: string) => { if(url.includes("/document/d/")) return url.replace("/edit", "/preview"); if(url.includes("/spreadsheets/d/")) return url.replace("/edit", "/preview"); if(url.includes("/presentation/d/")) return url.replace("/edit", "/preview"); return url; };
   const getFileIcon = (item: any) => { if (item.iconUrl) return <img src={item.iconUrl} className="w-5 h-5" alt="icon" />; const title = item.title.toLowerCase(); let iconClass = "fas fa-link text-slate-400"; if (title.includes("calendar")) iconClass = "fas fa-calendar-alt text-emerald-500"; else if (title.includes("plan") || title.includes("strategy")) iconClass = "fas fa-map text-blue-500"; else if (title.includes("offering")) iconClass = "fas fa-hand-holding-heart text-green-500"; else if (isGoogleDoc(item.url)) iconClass = "fab fa-google-drive text-slate-500"; return <i className={`${iconClass} text-lg`}></i>; };
@@ -709,15 +706,15 @@ if(user) {
     </button>
 
     {/* Only Owners can manage access */}
-{currentUserRole === 'owner' && (
-  <button 
-    onClick={() => setShowAccessModal(true)}
-    className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"
-    title="Manage Access"
-  >
-    <i className="fas fa-users-cog text-sm"></i>
-  </button>
-)}
+    {currentUserRole === 'owner' && (
+      <button 
+        onClick={() => setShowAccessModal(true)}
+        className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"
+        title="Manage Access"
+      >
+        <i className="fas fa-users-cog text-sm"></i>
+      </button>
+    )}
 
     {/* Help / Tutorial */}
     <button 
@@ -838,31 +835,31 @@ if(user) {
             {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
-                 <h3 
-                 ref={titleRef}
-                 contentEditable={isEditing}
-                 suppressContentEditableWarning={true}
-                 className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}
-                 >
+                  <h3 
+                  ref={titleRef}
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning={true}
+                  className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}
+                  >
                     {activeCard.title}
-                 </h3>
-                 {isEditing && isCardEditable(activeCard) && (
-                   <div className="flex gap-2 mt-3 animate-in fade-in slide-in-from-left-2 duration-200">
-                     {Object.keys(COLOR_MAP).map((c) => (
-                       <button
-                         key={c}
-                         onClick={(e) => { e.stopPropagation(); updateColor(c); }}
-                         className={`w-6 h-6 rounded-full border-2 border-white/40 hover:scale-110 transition-transform shadow-sm ${COLOR_MAP[c]} ${activeCard.color === c ? 'ring-2 ring-white scale-110' : ''}`}
-                         title={`Change to ${c}`}
-                       />
-                     ))}
-                   </div>
-                 )}
-                 {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
+                  </h3>
+                  {isEditing && isCardEditable(activeCard) && (
+                    <div className="flex gap-2 mt-3 animate-in fade-in slide-in-from-left-2 duration-200">
+                      {Object.keys(COLOR_MAP).map((c) => (
+                        <button
+                          key={c}
+                          onClick={(e) => { e.stopPropagation(); updateColor(c); }}
+                          className={`w-6 h-6 rounded-full border-2 border-white/40 hover:scale-110 transition-transform shadow-sm ${COLOR_MAP[c]} ${activeCard.color === c ? 'ring-2 ring-white scale-110' : ''}`}
+                          title={`Change to ${c}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                 {/* 🟢 TOGGLE FILES / VISUALIZATION */}
-                 {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
+                  {/* 🟢 TOGGLE FILES / VISUALIZATION */}
+                  {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                     <button 
                       onClick={() => {
                           if (activeCard.settings?.viewMode) {
@@ -887,38 +884,38 @@ if(user) {
                       <i className={`fas ${activeCard.settings?.viewMode ? 'fa-folder-open' : 'fa-chart-pie'}`}></i> 
                       {activeCard.settings?.viewMode ? "Back to Files" : "Visualize Data"}
                     </button>
-                 )}
-                 
-                 {activeCard.settings?.viewMode && (
-                      <button 
-                        onClick={() => setIsMapping(true)}
-                        className="px-3 py-1.5 rounded-lg text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
-                        title="Configure View"
-                      >
-                         <i className="fas fa-sliders-h"></i>
-                      </button>
-                 )}
-                 {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
+                  )}
+                  
+                  {activeCard.settings?.viewMode && (
+                       <button 
+                         onClick={() => setIsMapping(true)}
+                         className="px-3 py-1.5 rounded-lg text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
+                         title="Configure View"
+                       >
+                           <i className="fas fa-sliders-h"></i>
+                       </button>
+                  )}
+                  {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
                     <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
-                 )}
-                 {/* 🟢 PROTECTION: Only show Edit button if NOT a viewer */}
-{!showDocPreview && isCardEditable(activeCard) && currentUserRole !== 'viewer' && (
-    <button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}>
-        <i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}
-    </button>
-)}
-                 {/* 🟢 PROTECTION: Hide delete button if viewer */}
-{!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && currentUserRole !== 'viewer' && (
-  <button 
-    onClick={() => deleteCard(activeCard)} 
-    className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
-    title="Delete Card"
-  >
-    <i className="fas fa-trash"></i>
-  </button>
-)}
-                 {showDocPreview && <button onClick={() => setShowDocPreview(null)} className="bg-white/20 px-3 py-1 rounded text-sm font-medium"><i className="fas fa-arrow-left mr-2"></i> Back</button>}
-                 <button onClick={() => setActiveModal(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><i className="fas fa-times text-xl"></i></button>
+                  )}
+                  {/* 🟢 PROTECTION: Only show Edit button if NOT a viewer */}
+                  {!showDocPreview && isCardEditable(activeCard) && currentUserRole !== 'viewer' && (
+                    <button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}>
+                        <i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}
+                    </button>
+                  )}
+                  {/* 🟢 PROTECTION: Hide delete button if viewer */}
+                  {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && currentUserRole !== 'viewer' && (
+                  <button 
+                    onClick={() => deleteCard(activeCard)} 
+                    className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
+                    title="Delete Card"
+                  >
+                    <i className="fas fa-trash"></i>
+                  </button>
+                  )}
+                  {showDocPreview && <button onClick={() => setShowDocPreview(null)} className="bg-white/20 px-3 py-1 rounded text-sm font-medium"><i className="fas fa-arrow-left mr-2"></i> Back</button>}
+                  <button onClick={() => setActiveModal(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors"><i className="fas fa-times text-xl"></i></button>
               </div>
             </div>
             
@@ -975,56 +972,56 @@ if(user) {
                                          <i className="fas fa-info-circle mr-1"></i> Ensure Y-Axis data is numeric.
                                      </div>
                                      <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1">X-Axis (Category)</label>
-                                        <select 
-                                          value={activeCard.settings?.xAxisCol || ''} 
-                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, xAxisCol: e.target.value } })}
-                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                          <option value="">-- Select Column --</option>
-                                          {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
-                                        </select>
+                                       <label className="block text-xs font-bold text-slate-700 mb-1">X-Axis (Category)</label>
+                                       <select 
+                                         value={activeCard.settings?.xAxisCol || ''} 
+                                         onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, xAxisCol: e.target.value } })}
+                                         className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500"
+                                       >
+                                         <option value="">-- Select Column --</option>
+                                         {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                       </select>
                                      </div>
                                      <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1">Y-Axis (Value/Number)</label>
-                                        <select 
-                                          value={activeCard.settings?.yAxisCol || ''} 
-                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, yAxisCol: e.target.value } })}
-                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500"
-                                        >
-                                          <option value="">-- Select Column --</option>
-                                          {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
-                                        </select>
+                                       <label className="block text-xs font-bold text-slate-700 mb-1">Y-Axis (Value/Number)</label>
+                                       <select 
+                                         value={activeCard.settings?.yAxisCol || ''} 
+                                         onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, yAxisCol: e.target.value } })}
+                                         className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500"
+                                       >
+                                         <option value="">-- Select Column --</option>
+                                         {activeCard.columns?.map((c:string) => <option key={c} value={c}>{c}</option>)}
+                                       </select>
                                      </div>
                                      <div>
-                                        <label className="block text-xs font-bold text-slate-700 mb-1">Chart Type</label>
-                                        <select 
-                                          value={activeCard.settings?.chartType || 'bar'} 
-                                          onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, chartType: e.target.value } })}
-                                          className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none"
-                                        >
-                                          <option value="bar">Bar Chart</option>
-                                          <option value="line">Line Chart</option>
-                                          <option value="area">Area Chart</option>
-                                          <option value="pie">Pie Chart</option>
-                                          <option value="donut">Donut Chart</option>
-                                        </select>
+                                       <label className="block text-xs font-bold text-slate-700 mb-1">Chart Type</label>
+                                       <select 
+                                         value={activeCard.settings?.chartType || 'bar'} 
+                                         onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, chartType: e.target.value } })}
+                                         className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none"
+                                       >
+                                         <option value="bar">Bar Chart</option>
+                                         <option value="line">Line Chart</option>
+                                         <option value="area">Area Chart</option>
+                                         <option value="pie">Pie Chart</option>
+                                         <option value="donut">Donut Chart</option>
+                                       </select>
                                      </div>
 
                                      {/* 🟢 NEW TOGGLE: CONTROL DASHBOARD VISIBILITY */}
                                      <div className="pt-4 border-t border-slate-100">
-                                        <label className="flex items-center gap-3 cursor-pointer group">
-                                            <input 
-                                                type="checkbox" 
-                                                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                                                checked={activeCard.settings?.showOnDashboard || false}
-                                                onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, showOnDashboard: e.target.checked } })}
-                                            />
-                                            <div>
-                                                <div className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Show Chart on Dashboard</div>
-                                                <div className="text-[10px] text-slate-400">Replace the folder icon with this chart</div>
-                                            </div>
-                                        </label>
+                                       <label className="flex items-center gap-3 cursor-pointer group">
+                                           <input 
+                                               type="checkbox" 
+                                               className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                                               checked={activeCard.settings?.showOnDashboard || false}
+                                               onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, showOnDashboard: e.target.checked } })}
+                                           />
+                                           <div>
+                                               <div className="text-xs font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Show Chart on Dashboard</div>
+                                               <div className="text-[10px] text-slate-400">Replace the folder icon with this chart</div>
+                                           </div>
+                                       </label>
                                      </div>
                                 </div>
                             ) : (
@@ -1106,49 +1103,49 @@ if(user) {
                                     <h3 className="text-lg font-bold text-slate-800 mb-4 text-center">{activeCard.title}</h3>
                                     <div className="flex-1 min-h-0">
                                     <ResponsiveContainer width="100%" height="100%">
-                                        {activeCard.settings?.chartType === 'pie' || activeCard.settings?.chartType === 'donut' ? (
-                                           <PieChart>
-                                              <Pie
-                                                data={activeCard.data.map((d:any) => ({ name: d[activeCard.settings.xAxisCol], value: cleanNumber(d[activeCard.settings.yAxisCol]) }))}
-                                                cx="50%"
-                                                cy="50%"
-                                                innerRadius={activeCard.settings?.chartType === 'donut' ? 60 : 0}
-                                                outerRadius={80}
-                                                paddingAngle={5}
-                                                dataKey="value"
-                                              >
-                                                {activeCard.data.map((entry:any, index:number) => (
-                                                  <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                                                ))}
-                                              </Pie>
-                                              <Tooltip formatter={(value: number) => value.toLocaleString()} />
-                                              <Legend verticalAlign="bottom" height={36} />
-                                           </PieChart>
-                                        ) : activeCard.settings?.chartType === 'line' ? (
-                                            <LineChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
-                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
-                                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                                <Line type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
-                                            </LineChart>
-                                        ) : activeCard.settings?.chartType === 'area' ? (
-                                            <AreaChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
-                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
-                                                <Tooltip />
-                                                <Area type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" fill="#ddd6fe" />
-                                            </AreaChart>
-                                        ) : (
-                                            <BarChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                                                <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
-                                                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
-                                                <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                                                <Bar dataKey={activeCard.settings.yAxisCol} fill="#6366f1" radius={[4, 4, 0, 0]} />
-                                            </BarChart>
-                                        )}
+                                            {activeCard.settings?.chartType === 'pie' || activeCard.settings?.chartType === 'donut' ? (
+                                               <PieChart>
+                                                <Pie
+                                                  data={activeCard.data.map((d:any) => ({ name: d[activeCard.settings.xAxisCol], value: cleanNumber(d[activeCard.settings.yAxisCol]) }))}
+                                                  cx="50%"
+                                                  cy="50%"
+                                                  innerRadius={activeCard.settings?.chartType === 'donut' ? 60 : 0}
+                                                  outerRadius={80}
+                                                  paddingAngle={5}
+                                                  dataKey="value"
+                                                >
+                                                  {activeCard.data.map((entry:any, index:number) => (
+                                                    <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                                  ))}
+                                                </Pie>
+                                                <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                                                <Legend verticalAlign="bottom" height={36} />
+                                             </PieChart>
+                                            ) : activeCard.settings?.chartType === 'line' ? (
+                                                <LineChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                    <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                    <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
+                                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                    <Line type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
+                                                </LineChart>
+                                            ) : activeCard.settings?.chartType === 'area' ? (
+                                                <AreaChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                                    <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                    <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                                    <Tooltip />
+                                                    <Area type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" fill="#ddd6fe" />
+                                                </AreaChart>
+                                            ) : (
+                                                <BarChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                                    <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                                    <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                                    <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                                    <Bar dataKey={activeCard.settings.yAxisCol} fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                                </BarChart>
+                                            )}
                                     </ResponsiveContainer>
                                     </div>
                                 </div>
@@ -1188,8 +1185,8 @@ if(user) {
                         </div>
                       </div>
                   ) : activeCard.settings?.viewMode === 'chart' ? (
-                       <div className="p-8 h-full flex flex-col">
-                           <div className="flex-1 min-h-[400px]">
+                        <div className="p-8 h-full flex flex-col">
+                            <div className="flex-1 min-h-[400px]">
                                 <ResponsiveContainer width="100%" height="100%">
                                         {activeCard.settings?.chartType === 'line' ? (
                                             <LineChart data={activeCard.data.map((d:any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
@@ -1217,8 +1214,8 @@ if(user) {
                                             </BarChart>
                                         )}
                                 </ResponsiveContainer>
-                           </div>
-                       </div>
+                            </div>
+                        </div>
                   ) : activeCard.settings?.viewMode === 'card' ? (
                       <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                            {activeCard.data.filter((row:any) => row[activeCard.settings.titleCol]).map((row:any, idx:number) => (
