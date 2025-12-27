@@ -216,18 +216,21 @@ export default function DynamicDashboard() {
           userCanEdit = true;
         } else {
           // B. If not Owner, check Permissions Table
+          // 🟢 FIX: Used .maybeSingle() instead of .single() to prevent 406 crash
           const { data: perm } = await supabase
             .from('dashboard_permissions')
             .select('role')
             .eq('dashboard_id', dashboardId)
             .eq('user_email', user.email)
-            .single();
+            .maybeSingle();
 
           if (perm?.role === 'edit') {
             userCanEdit = true;
           }
         }
       }
+
+      console.log("Permissions calculated:", userCanEdit); // Debug log
       setCanEdit(userCanEdit);
 
       // 4. Secure Token Logic
