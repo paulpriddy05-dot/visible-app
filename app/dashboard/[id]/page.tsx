@@ -189,7 +189,9 @@ export default function DynamicDashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
-    if (!dashboardId) return;
+    console.log("MY ID: ", user.id);
+    console.log("OWNER ID: ", dashConfig.user_id);
+     if (!dashboardId) return;
     const initDashboard = async () => {
       setLoading(true);
 
@@ -265,7 +267,7 @@ export default function DynamicDashboard() {
       const csvUrl = toCSVUrl(url);
       const response = await fetch(csvUrl);
 
-      // 🟢 FIX: Handle 404 errors gracefully
+      // 🟢 FIX: Stop if sheet is missing (404)
       if (!response.ok) {
         console.warn(`⚠️ Could not load sheet for "${card.title}": ${response.status}`);
         return;
