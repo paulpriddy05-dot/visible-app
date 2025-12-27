@@ -219,12 +219,13 @@ export default function DynamicDashboard() {
           userCanEdit = true;
         } else {
           // B. Check Permissions Table
+          // 🟢 THIS IS THE FIX: Using .limit(1) never crashes.
           const { data: permList, error: permError } = await supabase
             .from('dashboard_permissions')
             .select('role')
             .eq('dashboard_id', dashboardId)
             .eq('user_email', user.email)
-            .limit(1); // <--- 🟢 NEVER CRASHES
+            .limit(1);
 
           if (permError) {
             console.error("Permission Check Failed:", permError);
