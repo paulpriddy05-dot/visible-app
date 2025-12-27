@@ -190,73 +190,97 @@ export default function DynamicDashboard() {
 
   useEffect(() => {
     if (!dashboardId) return;
+
     const initDashboard = async () => {
       setLoading(true);
 
-      // 1. Get User Session
-      const { data: { user } } = await supabase.auth.getUser();
+      try {
+        // 1. Get current user session
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-      // 2. Fetch Dashboard Config
-      const { data: dashConfig, error } = await supabase
-        .from('dashboards')
-        .select('*')
-        .eq('id', dashboardId)
-        .single();
+        if (userError) {
+          console.error("Failed to get user:", userError);
+          // You might want to handle unauthenticated state here
+        }
 
-      if (error || !dashConfig) {
-        console.error("Dashboard Load Error:", error);
-        return;
-      }
+        // 2. Fetch dashboard config
+        const { data: dashConfig, error: configError } = await supabase
+          .from('dashboards')
+          .select('*')
+          .eq('id', dashboardId)
+          .single();
 
-      // 🟢 3. BULLETPROOF PERMISSION CHECK
-      // We use 'limit(1)' instead of 'single()' to avoid 406 crashes on empty results
-      let userCanEdit = false;
+        if (configError || !dashConfig) {
+          console.error("Dashboard Load Error:", configError);
+          // Optionally show a user-facing error message
+          setLoading(false);
+          return;
+        }
 
-      if (user) {
-        // A. Check Owner
-        if (dashConfig.user_id === user.id) {
-          console.log("✅ User is OWNER");
-          userCanEdit = true;
-        } else {
-          // B. Check Permissions Table
-          // 🟢 THIS IS THE FIX: Using .limit(1) never crashes.
-          const { data: permList, error: permError } = await supabase
-            .from('dashboard_permissions')
-            .select('role')
-            .eq('dashboard_id', dashboardId)
-            .eq('user_email', user.email)
-            .limit(1);
+        // 3. BULLETPROOF PERMISSION CHECK
+        let userCanEdit = false;
 
-          if (permError) {
-            console.error("Permission Check Failed:", permError);
-          } else if (permList && permList.length > 0 && permList[0].role === 'edit') {
-            console.log("✅ User is EDITOR");
+        if (user) {
+          // A. Owner check
+          if (dashConfig.user_id === user.id) {
+            console.log("✅ User is OWNER");
             userCanEdit = true;
           } else {
-            console.log("❌ User is VIEWER (or no access found)");
+            // B. Check explicit permissions
+            const { data: permList, error: permError } = await supabase
+              .from('dashboard_permissions')
+              .select('role')
+              .eq('dashboard_id', dashboardId)
+              .eq('user_email', user.email)
+              .limit(1); // Safe — never throws on no rows
+
+            if (permError) {
+              console.error("Permission Check Failed:", permError);
+            } else if (permList?.length > 0 && permList[0].role === 'edit') {
+              console.log("✅ User is EDITOR");
+              userCanEdit = true;
+            } else {
+              console.log("❌ User is VIEWER (or no access found)");
+            }
           }
+        } else {
+          console.log("❌ No authenticated user");
         }
+
+        setCanEdit(userCanEdit);
+
+        // 4. Get or create secure share token
+        const { data: secureToken, error: tokenError } = await supabase.rpc('get_or_create_invite_token', {
+          p_dashboard_id: dashboardId,
+        });
+
+        if (tokenError) {
+          console.error("Token fetch error:", tokenError);
+        } else if (secureToken) {
+          dashConfig.share_token = secureToken;
+        }
+
+        // 5. Update state with config
+        setConfig(dashConfig);
+        if (dashConfig.settings?.sections) setSections(dashConfig.settings.sections);
+        if (dashConfig.settings?.scheduleTitle) setScheduleTitle(dashConfig.settings.scheduleTitle);
+        if (dashConfig.settings?.missionsTitle) setMissionsTitle(dashConfig.settings.missionsTitle);
+
+        // 6. Load external data
+        await Promise.all([
+          fetchSheetData(dashConfig),      // Make sure this handles 404 gracefully
+          fetchManualCards(),
+          fetchGenericWidgets(),
+        ]);
+
+      } catch (unexpectedError) {
+        console.error("Unexpected error during dashboard init:", unexpectedError);
+        // Optionally set an error state to show to the user
+      } finally {
+        setLoading(false);
       }
-
-      setCanEdit(userCanEdit);
-
-      // 4. Secure Token Logic
-      const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
-      if (secureToken) {
-        dashConfig.share_token = secureToken;
-      }
-
-      // 5. Load Data
-      setConfig(dashConfig);
-      if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
-      if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
-      if (dashConfig.settings?.missionsTitle) { setMissionsTitle(dashConfig.settings.missionsTitle); }
-
-      await fetchSheetData(dashConfig);
-      await fetchManualCards();
-      await fetchGenericWidgets();
-      setLoading(false);
     };
+
     initDashboard();
   }, [dashboardId]);
 
