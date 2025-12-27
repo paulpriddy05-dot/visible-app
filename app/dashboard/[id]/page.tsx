@@ -794,9 +794,9 @@ export default function DynamicDashboard() {
                 </div>
             )}
 
-            {/* 3. DYNAMIC CUSTOM SECTIONS */}
+           {/* 3. DYNAMIC CUSTOM SECTIONS */}
             {sections.map((section) => {
-                // 1. Safety Checks: Ensure arrays exist
+                // 1. Safety Checks: Ensure arrays exist so we don't crash on load
                 const safeManual = manualCards || [];
                 const safeWidgets = genericWidgets || [];
 
@@ -825,7 +825,7 @@ export default function DynamicDashboard() {
                             )}
                         </div>
                         
-                        {/* 🟢 CRITICAL FIX: Pass ONLY IDs to items, ensuring no objects cause reference errors */}
+                        {/* 🟢 CRITICAL FIX HERE: Pass ONLY IDs (items={sectionCards.map(c => c.id)}) */}
                         <SortableContext items={sectionCards.map(c => c.id)} strategy={rectSortingStrategy} id={section}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-transparent p-2 transition-colors hover:border-slate-200/20">
                                 {sectionCards.map((card) => ( 
@@ -833,6 +833,7 @@ export default function DynamicDashboard() {
                                         key={card.id} 
                                         card={card} 
                                         onClick={setActiveModal} 
+                                        // No getBgColor passed here because it is global
                                     /> 
                                 ))}
                                 {sectionCards.length === 0 && ( <div className="col-span-full flex items-center justify-center text-slate-300 text-sm font-medium italic h-24">Drop cards here</div> )}
