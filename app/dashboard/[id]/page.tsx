@@ -207,53 +207,53 @@ export default function DynamicDashboard() {
 
       if (error || !dashConfig) {
         console.error("Dashboard Load Error:", error);
-        // Optional: Handle 404
         return;
       }
 
-      // 🟢 3. BULLETPROOF PERMISSION CHECK
+      // 🟢 3. BULLETPROOF PERMISSION CHECK (Fixed for 'dashboard_access')
       let userCanEdit = false;
 
       if (user) {
-        // 🔍 DEBUG LOGS: Check your browser console (F12) to see these values!
-        console.log("-----------------------------------");
-        console.log("My Login ID :", user.id);
-        console.log("Dash Owner  :", dashConfig.user_id);
-        console.log("Do they match?", dashConfig.user_id === user.id);
-        console.log("-----------------------------------");
-
-        // A. Check Owner
+        // A. Backup Check: Direct Ownership on the dashboard row
         if (dashConfig.user_id === user.id) {
-          console.log("✅ User is OWNER");
+          console.log("✅ User is OWNER (via dashboard row)");
           userCanEdit = true;
         } else {
-          // B. Check Permissions Table
-          const { data: permList } = await supabase
-            .from('dashboard_permissions')
+          // B. Primary Check: 'dashboard_access' table
+          // 🟢 FIX 1: Changed table name to 'dashboard_access' (matches your screenshot)
+          const { data: accessList, error: accessError } = await supabase
+            .from('dashboard_access')
             .select('role')
             .eq('dashboard_id', dashboardId)
-            .eq('user_email', user.email)
+            .eq('user_id', user.id) // 🟢 FIX 2: Check 'user_id' instead of 'user_email' (matches screenshot)
             .limit(1);
 
-          if (permList && permList.length > 0 && permList[0].role === 'edit') {
-            console.log("✅ User is EDITOR");
-            userCanEdit = true;
+          if (accessError) {
+            console.error("Access Check Failed:", accessError);
+          } else if (accessList && accessList.length > 0) {
+            const role = accessList[0].role;
+            // 🟢 FIX 3: Allow 'owner' or 'editor' to edit
+            if (['owner', 'editor', 'edit'].includes(role)) {
+              console.log(`✅ User is ${role.toUpperCase()}`);
+              userCanEdit = true;
+            } else {
+              console.log(`❌ User is ${role.toUpperCase()} (View Only)`);
+            }
           } else {
-            console.log("❌ User is VIEWER (or no access found)");
+            console.log("❌ User has NO ACCESS row found");
           }
         }
       }
+
       setCanEdit(userCanEdit);
 
       // 4. Secure Token Logic
-      const { data: secureToken } = await supabase
-        .rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
-
+      const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
       if (secureToken) {
-        dashConfig.share_token = secureToken; // Sync frontend with backend
+        dashConfig.share_token = secureToken;
       }
 
-      // 5. Set Config & Continue
+      // 5. Load Data
       setConfig(dashConfig);
       if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
       if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
