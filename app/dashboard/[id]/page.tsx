@@ -209,23 +209,22 @@ export default function DynamicDashboard() {
       }
 
       // 🟢 3. BULLETPROOF PERMISSION CHECK
+      // We use 'limit(1)' instead of 'single()' to avoid 406 crashes on empty results
       let userCanEdit = false;
 
       if (user) {
-        console.log("Checking permissions for:", user.email);
-
         // A. Check Owner
         if (dashConfig.user_id === user.id) {
           console.log("✅ User is OWNER");
           userCanEdit = true;
         } else {
-          // B. Check Permissions Table (Using a List to prevent crashes)
+          // B. Check Permissions Table
           const { data: permList, error: permError } = await supabase
             .from('dashboard_permissions')
             .select('role')
             .eq('dashboard_id', dashboardId)
             .eq('user_email', user.email)
-            .limit(1); // Get a list of max 1 item
+            .limit(1); // <--- 🟢 NEVER CRASHES
 
           if (permError) {
             console.error("Permission Check Failed:", permError);
