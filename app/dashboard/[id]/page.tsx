@@ -213,13 +213,21 @@ export default function DynamicDashboard() {
 
       // 🟢 3. BULLETPROOF PERMISSION CHECK
       let userCanEdit = false;
+
       if (user) {
+        // 🔍 DEBUG LOGS: Check your browser console (F12) to see these values!
+        console.log("-----------------------------------");
+        console.log("My Login ID :", user.id);
+        console.log("Dash Owner  :", dashConfig.user_id);
+        console.log("Do they match?", dashConfig.user_id === user.id);
+        console.log("-----------------------------------");
+
         // A. Check Owner
         if (dashConfig.user_id === user.id) {
           console.log("✅ User is OWNER");
           userCanEdit = true;
         } else {
-          // B. Check Permissions Table (Using limit to prevent crash)
+          // B. Check Permissions Table
           const { data: permList } = await supabase
             .from('dashboard_permissions')
             .select('role')
