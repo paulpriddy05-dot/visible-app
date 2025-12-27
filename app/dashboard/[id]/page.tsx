@@ -909,11 +909,15 @@ export default function DynamicDashboard() {
                       }
                       else {
                         // If Off, Turn On
-                        if (attachedSheetUrl && !activeCard.data) {
-                          loadSheetData(attachedSheetUrl, activeCard);
-                        }
                         const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } };
+
+                        // 1. Update State Immediately (so UI updates)
                         setActiveCard(updated);
+
+                        // 2. Fetch Data (passing the UPDATED card so we don't lose the viewMode)
+                        if (attachedSheetUrl && !activeCard.data) {
+                          loadSheetData(attachedSheetUrl, updated);
+                        }
                       }
                     }}
                     className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode
