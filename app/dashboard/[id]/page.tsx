@@ -228,15 +228,11 @@ export default function DynamicDashboard() {
           }
         }
       }
-      setCanEdit(userCanEdit); // Save to state
+      setCanEdit(userCanEdit);
 
       // 4. Secure Token Logic
-      const { data: secureToken } = await supabase
-        .rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
-
-      if (secureToken) {
-        dashConfig.share_token = secureToken;
-      }
+      const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
+      if (secureToken) dashConfig.share_token = secureToken;
 
       // 5. Load Data
       setConfig(dashConfig);
@@ -736,6 +732,14 @@ export default function DynamicDashboard() {
         </div>
       </nav>
 
+      {/* 🟢 DEBUGGER: Remove after testing */}
+      <div className="bg-amber-100 text-amber-900 p-2 text-center text-xs font-mono border-b border-amber-200">
+        DEBUG:
+        <span className="font-bold mx-2">Can Edit: {canEdit ? "YES" : "NO"}</span> |
+        <span className="mx-2">My ID: {supabase.auth.getUser().then(u => u.data.user?.id?.substring(0, 4))}...</span> |
+        <span className="mx-2">Owner ID: {config?.user_id?.substring(0, 4)}...</span>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
 
         <DndContext
@@ -912,10 +916,15 @@ export default function DynamicDashboard() {
                 {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
                   <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
                 )}
-                {/* Edit Button */}
-                {!showDocPreview && isCardEditable(activeCard) && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
-                {/* Delete Button */}
-                {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && (
+                {/* 🟢 4. Hide Edit Button if Viewer (Updated) */}
+                {!showDocPreview && isCardEditable(activeCard) && canEdit && (
+                  <button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}>
+                    <i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}
+                  </button>
+                )}
+
+                {/* 🟢 5. Hide Delete Button if Viewer (Updated) */}
+                {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && canEdit && (
                   <button
                     onClick={() => deleteCard(activeCard)}
                     className="bg-red-500 px-3 py-1 rounded text-sm font-bold hover:bg-red-600 transition-colors text-white"
@@ -1285,28 +1294,39 @@ export default function DynamicDashboard() {
                   {activeCard.response_song && <div className="mt-2 ml-4"><div className="bg-purple-50 text-purple-900 p-3 rounded-md text-sm italic border border-purple-100 shadow-sm">{activeCard.response_song}</div></div>}
                 </div>
               ) : (
-                /* MANUAL CARD VIEW */
-                !showDocPreview && (
-                  <div className="p-0">
-                    <div className="p-8">
-                      {/* Top Add Buttons */}
-                      {isEditing && (<div className="flex flex-col gap-3">{getBlocks(activeCard).length === 0 && (<button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm"><i className="fas fa-plus-circle mr-2"></i> Start Adding Files</button>)}<button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">+ Create New Category Block</button></div>)}
-                      {getBlocks(activeCard).map((block: any, bIdx: number) => (
-                        <div key={bIdx} className="mb-8">
-                          {/* Delete Block Button */}
-                          <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1"><h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>{isEditing && <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>}</div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {block.items.map((item: any, iIdx: number) => (
-                              <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
-                                <div className="flex items-center gap-4 flex-1" onClick={() => handleFileClick(item)}>
-                                  <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
-                                  <div className="font-bold texbutton onClick={() => deleteBlock(bIdx)t-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
-                                </div>
-                                {/* Delete File "X" Button */}
-                                {isEditing && <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>}
+                      /* MANUAL CARD VIEW */
+                      !showDocPreview && (
+                        <div className="p-0">
+                          <div className="p-8">
+                            {/* 🟢 6. Hide Add Buttons if Viewer */}
+                            {isEditing && canEdit && (
+                              <div className="flex flex-col gap-3">
+                                {getBlocks(activeCard).length === 0 && (
+                                  <button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm"><i className="fas fa-plus-circle mr-2"></i> Start Adding Files</button>
+                                )}
+                                <button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">+ Create New Category Block</button>
                               </div>
-                            ))}
-                          </div>
+                            )}
+
+                            {getBlocks(activeCard).map((block: any, bIdx: number) => (
+                              <div key={bIdx} className="mb-8">
+                                <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1">
+                                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>
+                                  {/* 🟢 7. Hide Delete Block if Viewer */}
+                                  {isEditing && canEdit && <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {block.items.map((item: any, iIdx: number) => (
+                                    <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
+                                      <div className="flex items-center gap-4 flex-1" onClick={() => handleFileClick(item)}>
+                                        <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
+                                        <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
+                                      </div>
+                                      {/* 🟢 8. Hide Delete Item X if Viewer */}
+                                      {isEditing && canEdit && <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>}
+                                    </div>
+                                  ))}
+                                </div>
                           {isEditing && (
                             <div className="mt-4 pt-4 border-t border-slate-50">
                               {addingLinkToBlock === bIdx ? (
