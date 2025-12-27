@@ -157,6 +157,8 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 export default function DynamicDashboard() {
   const params = useParams();
   const dashboardId = params.id as string;
+
+  // 🟢 1. PERMISSION STATE
   const [canEdit, setCanEdit] = useState(false);
 
   const [config, setConfig] = useState<any>(null);
@@ -189,9 +191,7 @@ export default function DynamicDashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
-    console.log("MY ID: ", user.id);
-    console.log("OWNER ID: ", dashConfig.user_id);
-     if (!dashboardId) return;
+    if (!dashboardId) return;
     const initDashboard = async () => {
       setLoading(true);
 
@@ -207,31 +207,27 @@ export default function DynamicDashboard() {
 
       if (error || !dashConfig) {
         console.error("Dashboard Load Error:", error);
+        // Optional: Handle 404
         return;
       }
 
       // 🟢 3. BULLETPROOF PERMISSION CHECK
-      // We use 'limit(1)' instead of 'single()' to avoid 406 crashes on empty results
       let userCanEdit = false;
-
       if (user) {
         // A. Check Owner
         if (dashConfig.user_id === user.id) {
           console.log("✅ User is OWNER");
           userCanEdit = true;
         } else {
-          // B. Check Permissions Table
-          // 🟢 THIS IS THE FIX: Using .limit(1) never crashes.
-          const { data: permList, error: permError } = await supabase
+          // B. Check Permissions Table (Using limit to prevent crash)
+          const { data: permList } = await supabase
             .from('dashboard_permissions')
             .select('role')
             .eq('dashboard_id', dashboardId)
             .eq('user_email', user.email)
             .limit(1);
 
-          if (permError) {
-            console.error("Permission Check Failed:", permError);
-          } else if (permList && permList.length > 0 && permList[0].role === 'edit') {
+          if (permList && permList.length > 0 && permList[0].role === 'edit') {
             console.log("✅ User is EDITOR");
             userCanEdit = true;
           } else {
@@ -239,16 +235,17 @@ export default function DynamicDashboard() {
           }
         }
       }
-
       setCanEdit(userCanEdit);
 
       // 4. Secure Token Logic
-      const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
+      const { data: secureToken } = await supabase
+        .rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
+
       if (secureToken) {
-        dashConfig.share_token = secureToken;
+        dashConfig.share_token = secureToken; // Sync frontend with backend
       }
 
-      // 5. Load Data
+      // 5. Set Config & Continue
       setConfig(dashConfig);
       if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
       if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
@@ -266,13 +263,11 @@ export default function DynamicDashboard() {
     try {
       const csvUrl = toCSVUrl(url);
       const response = await fetch(csvUrl);
-
-      // 🟢 FIX: Stop if sheet is missing (404)
+      // 🟢 FIX: Handle 404s gracefully
       if (!response.ok) {
-        console.warn(`⚠️ Could not load sheet for "${card.title}": ${response.status}`);
+        console.warn(`Could not load sheet for ${card.title}: ${response.status}`);
         return;
       }
-
       const csvText = await response.text();
       Papa.parse(csvText, {
         header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(),
@@ -293,55 +288,50 @@ export default function DynamicDashboard() {
       try {
         const csvUrl = toCSVUrl(widget.sheet_url);
         const response = await fetch(csvUrl);
-        const csvText = await response.text();
-        Papa.parse(csvText, {
-          header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(),
-          complete: (results: any) => {
-            const safeSettings = widget.settings || {};
-            if (!safeSettings.category) {
-              safeSettings.category = "Planning & Resources";
+        if (response.ok) {
+          const csvText = await response.text();
+          Papa.parse(csvText, {
+            header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(),
+            complete: (results: any) => {
+              const safeSettings = widget.settings || {};
+              if (!safeSettings.category) { safeSettings.category = "Planning & Resources"; }
+              loadedWidgets.push({
+                id: widget.id,
+                title: widget.title,
+                type: 'generic-sheet',
+                color: widget.color || 'blue',
+                data: results.data,
+                columns: results.meta.fields,
+                rowCount: results.data.length,
+                sheet_url: widget.sheet_url,
+                settings: safeSettings
+              });
             }
-            loadedWidgets.push({
-              id: widget.id,
-              title: widget.title,
-              type: 'generic-sheet',
-              color: widget.color || 'blue',
-              data: results.data,
-              columns: results.meta.fields,
-              rowCount: results.data.length,
-              sheet_url: widget.sheet_url,
-              settings: safeSettings
-            });
-          }
-        });
+          });
+        }
       } catch (e) { console.error("Error fetching widget", widget.title); }
     }
     setTimeout(() => setGenericWidgets(loadedWidgets), 500);
   };
 
   const fetchSheetData = async (currentConfig: any) => {
-    // 1. Fetch Weekly Schedule
     if (currentConfig.sheet_url_schedule) {
       try {
         const response = await fetch(currentConfig.sheet_url_schedule);
-        if (response.ok) { // 🟢 Check OK before parsing
+        if (response.ok) {
           Papa.parse(await response.text(), {
             header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
               const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({ id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet", category: "Weekly Schedule" }));
               setScheduleCards(cards);
             }
           });
-        } else {
-          console.warn("⚠️ Schedule Sheet 404 (Not Found)");
         }
       } catch (e) { console.error("Schedule Fetch Error", e); }
     }
-
-    // 2. Fetch Missions
     if (currentConfig.sheet_url_missions) {
       try {
         const response = await fetch(currentConfig.sheet_url_missions);
-        if (response.ok) { // 🟢 Check OK before parsing
+        if (response.ok) {
           Papa.parse(await response.text(), {
             header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
               const data = results.data;
@@ -351,50 +341,8 @@ export default function DynamicDashboard() {
               }
             }
           });
-        } else {
-          console.warn("⚠️ Missions Sheet 404 (Not Found)");
         }
       } catch (e) { console.error("Missions Fetch Error", e); }
-    }
-
-    // 2. Fetch Missions Sheet
-    if (currentConfig.sheet_url_missions) {
-      try {
-        const response = await fetch(currentConfig.sheet_url_missions);
-        if (!response.ok) throw new Error(`Status: ${response.status}`);
-
-        const csvText = await response.text();
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: (h: string) => h.trim(),
-          complete: (results: any) => {
-            const data = results.data;
-            if (data.length > 0) {
-              const row1 = data[0];
-              setMissionCard({
-                id: 'missions-status',
-                title: "Missions Status",
-                totalNonStaff: row1["Total Non-Staff"],
-                totalStaff: row1["Total Staff"],
-                percentNonStaff: row1["% of Non-Staff on Tr"] || row1["% of Non-Staff on Trips"],
-                percentStaff: row1["% of Staff on Trips"],
-                totalOpen: row1["Open Spots"],
-                upcomingLoc: data.find((r: any) => r["Detail"]?.includes("Location"))?.["Value"] || "TBD",
-                upcomingDate: data.find((r: any) => r["Detail"]?.includes("Departure Date"))?.["Value"] || "TBD",
-                upcomingOpen: data.find((r: any) => r["Detail"]?.includes("Open Spots"))?.["Value"] || "0",
-                upcomingStatus: data.find((r: any) => r["Detail"]?.includes("Status"))?.["Value"] || "Open",
-                trips: data.map((r: any) => ({ name: r[""] || r["Trip"] || Object.values(r)[5], spots: r["Open Spots_1"] || Object.values(r)[6] })).filter((t: any) => t.name && t.spots && t.name !== "Trip"),
-                color: "teal",
-                source: "missions-dashboard",
-                category: "Missions"
-              });
-            }
-          }
-        });
-      } catch (error) {
-        console.error("❌ Failed to load Missions Sheet:", error);
-      }
     }
   };
 
@@ -410,8 +358,6 @@ export default function DynamicDashboard() {
     setActiveCard(updatedModalCard);
 
     // 2. Prepare the Card for the Dashboard List
-    // We slice the data to only 20 rows. This is enough for the mini-chart 
-    // but small enough to stop the "Disappearing Title" glitch.
     const cardForList = { ...updatedModalCard };
     if (cardForList.data && cardForList.data.length > 20) {
       cardForList.data = cardForList.data.slice(0, 20);
@@ -756,7 +702,7 @@ export default function DynamicDashboard() {
                 />
               </div>
 
-              {/* 4. New Card Button (Now Prominent on Left) */}
+              {/* 4. New Card Button (Only show if canEdit) */}
               {canEdit && (
                 <button
                   onClick={() => addNewCard(sections[0])}
@@ -807,18 +753,11 @@ export default function DynamicDashboard() {
         </div>
       </nav>
 
-      {/* 🟢 DEBUGGER: Remove after testing */}
-      <div className="bg-amber-100 text-amber-900 p-2 text-center text-xs font-mono border-b border-amber-200">
-        DEBUG:
-        <span className="font-bold mx-2">Can Edit: {canEdit ? "YES" : "NO"}</span> |
-        <span className="mx-2">My ID: {supabase.auth.getUser().then(u => u.data.user?.id?.substring(0, 4))}...</span> |
-        <span className="mx-2">Owner ID: {config?.user_id?.substring(0, 4)}...</span>
-      </div>
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
 
+        {/* 🟢 DISABLE SENSORS IF CANNOT EDIT */}
         <DndContext
-          sensors={canEdit ? sensors : []} // 🟢 Disable sensors if cannot edit
+          sensors={canEdit ? sensors : []}
           collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
@@ -828,11 +767,14 @@ export default function DynamicDashboard() {
           {scheduleCards.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between group">
-                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(scheduleTitle, 'schedule')}>
-                  <i className="fas fa-calendar-alt"></i> {scheduleTitle} {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
+                <div
+                  className={`flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 transition-colors ${canEdit ? "cursor-pointer hover:text-blue-500" : "cursor-default"}`}
+                  onClick={() => canEdit && renameSection(scheduleTitle, 'schedule')}
+                >
+                  <i className="fas fa-calendar-alt"></i> {scheduleTitle}
+                  {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
                 </div>
                 {canEdit && <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>}
-            
               </div>
               <SortableContext items={weeklyScheduleItems} strategy={rectSortingStrategy} id="Weekly Schedule">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
@@ -848,10 +790,14 @@ export default function DynamicDashboard() {
           {missionSectionItems.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between group">
-                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(missionsTitle, 'missions')}>
-                  <i className="fas fa-plane-departure"></i> {missionsTitle} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
+                <div
+                  className={`flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 transition-colors ${canEdit ? "cursor-pointer hover:text-blue-500" : ""}`}
+                  onClick={() => canEdit && renameSection(missionsTitle, 'missions')}
+                >
+                  <i className="fas fa-plane-departure"></i> {missionsTitle}
+                  {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
                 </div>
-                <button onClick={() => addNewCard("Missions")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
+                {canEdit && <button onClick={() => addNewCard("Missions")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>}
               </div>
               <SortableContext items={missionSectionItems} strategy={rectSortingStrategy} id="Missions">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
@@ -874,30 +820,21 @@ export default function DynamicDashboard() {
               <div key={section} className="space-y-4 animate-in fade-in duration-500">
                 <div className="flex items-center justify-between group">
                   <div className="flex items-center gap-2">
-
-                    {/* 1. Rename Section (Disable if Viewer) */}
                     <div
-                      className={`flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 transition-colors ${canEdit ? "cursor-pointer hover:text-blue-500" : "cursor-default"}`}
+                      className={`flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 transition-colors ${canEdit ? "cursor-pointer hover:text-blue-500" : ""}`}
                       onClick={() => canEdit && renameSection(section, 'custom')}
                     >
                       <i className="fas fa-layer-group"></i> {section}
                       {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
                     </div>
-
-                    {/* 2. Delete Section (Hide if Viewer) */}
                     {canEdit && (
                       <button onClick={() => deleteSection(section)} className="text-slate-300 hover:text-red-500 transition-colors text-xs" title="Delete Section">
                         <i className="fas fa-trash"></i>
                       </button>
                     )}
                   </div>
-
-                  {/* 3. Add Card (Hide if Viewer) */}
-                  {canEdit && (
-                    <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>
-                  )}
+                  {canEdit && <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>}
                 </div>
-
                 <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-transparent p-2 transition-colors hover:border-slate-200/20">
                     {sectionCards.map((card) => (<SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} />))}
@@ -917,7 +854,9 @@ export default function DynamicDashboard() {
         </DndContext>
 
         <div className="pt-8 border-t border-slate-200 text-center">
-          <button onClick={addSection} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors"><i className="fas fa-plus"></i> Add New Section</button>
+          {canEdit && (
+            <button onClick={addSection} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors"><i className="fas fa-plus"></i> Add New Section</button>
+          )}
         </div>
       </main>
 
@@ -930,13 +869,13 @@ export default function DynamicDashboard() {
               <div>
                 <h3
                   ref={titleRef}
-                  contentEditable={isEditing && canEdit} // Check canEdit
+                  contentEditable={isEditing && canEdit}
                   suppressContentEditableWarning={true}
-                  className={`text-2xl font-bold outline-none ${isEditing ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}
+                  className={`text-2xl font-bold outline-none ${isEditing && canEdit ? 'border-b-2 border-white/50 bg-white/10 px-2 rounded cursor-text' : ''}`}
                 >
                   {activeCard.title}
                 </h3>
-                {isEditing && isCardEditable(activeCard) && canEdit && ( // Check canEdit
+                {isEditing && isCardEditable(activeCard) && canEdit && (
                   <div className="flex gap-2 mt-3 animate-in fade-in slide-in-from-left-2 duration-200">
                     {Object.keys(COLOR_MAP).map((c) => (
                       <button
@@ -982,7 +921,7 @@ export default function DynamicDashboard() {
                 {activeCard.settings?.viewMode && (
                   <button
                     onClick={() => setIsMapping(true)}
-                    className="px-3 py-1.5 rounded-lg text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all shadow-sm"
+                    className={`px-3 py-1.5 rounded-lg text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all shadow-sm ${!canEdit ? 'hidden' : ''}`}
                     title="Configure View"
                   >
                     <i className="fas fa-sliders-h"></i>
@@ -991,14 +930,7 @@ export default function DynamicDashboard() {
                 {(showDocPreview || activeCard.sheet_url || activeCard.source?.includes("sheet")) && (
                   <a href={showDocPreview ? showDocPreview.replace("/preview", "/edit") : activeCard.sheet_url || activeCard.sheet_url_schedule} target="_blank" rel="noreferrer" className="px-3 py-1 rounded text-sm font-bold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors border border-blue-200 flex items-center gap-2"><i className="fas fa-external-link-alt"></i> <span className="hidden sm:inline">Open in {activeCard.source?.includes("sheet") || activeCard.type === 'generic-sheet' ? "Sheets" : "Docs"}</span></a>
                 )}
-                {/* 🟢 4. Hide Edit Button if Viewer (Updated) */}
-                {!showDocPreview && isCardEditable(activeCard) && canEdit && (
-                  <button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}>
-                    <i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}
-                  </button>
-                )}
-
-                {/* 🟢 5. Hide Delete Button if Viewer (Updated) */}
+                {!showDocPreview && isCardEditable(activeCard) && canEdit && (<button onClick={toggleEditMode} className={`px-3 py-1 rounded text-sm font-medium transition-colors border ${isEditing ? 'bg-white text-slate-900 border-white' : 'bg-black/20 text-white border-transparent hover:bg-black/40'}`}><i className={`fas ${isEditing ? 'fa-check' : 'fa-pen'} mr-2`}></i>{isEditing ? "Done" : "Edit Card"}</button>)}
                 {!showDocPreview && (isCardEditable(activeCard) || activeCard.type === 'generic-sheet') && canEdit && (
                   <button
                     onClick={() => deleteCard(activeCard)}
@@ -1369,40 +1301,35 @@ export default function DynamicDashboard() {
                   {activeCard.response_song && <div className="mt-2 ml-4"><div className="bg-purple-50 text-purple-900 p-3 rounded-md text-sm italic border border-purple-100 shadow-sm">{activeCard.response_song}</div></div>}
                 </div>
               ) : (
-                      /* MANUAL CARD VIEW */
-                      !showDocPreview && (
-                        <div className="p-0">
-                          <div className="p-8">
-                            {/* 🟢 6. Hide Add Buttons if Viewer */}
-                            {isEditing && canEdit && (
-                              <div className="flex flex-col gap-3">
-                                {getBlocks(activeCard).length === 0 && (
-                                  <button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm"><i className="fas fa-plus-circle mr-2"></i> Start Adding Files</button>
-                                )}
-                                <button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">+ Create New Category Block</button>
-                              </div>
-                            )}
+                /* MANUAL CARD VIEW */
+                !showDocPreview && (
+                  <div className="p-0">
+                    <div className="p-8">
+                      {/* 🟢 6. Hide Add Buttons if Viewer */}
+                      {isEditing && canEdit && (<div className="flex flex-col gap-3">{getBlocks(activeCard).length === 0 && (<button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm"><i className="fas fa-plus-circle mr-2"></i> Start Adding Files</button>)}<button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">+ Create New Category Block</button></div>)}
 
-                            {getBlocks(activeCard).map((block: any, bIdx: number) => (
-                              <div key={bIdx} className="mb-8">
-                                <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1">
-                                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>
-                                  {/* 🟢 7. Hide Delete Block if Viewer */}
-                                  {isEditing && canEdit && <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>}
+                      {getBlocks(activeCard).map((block: any, bIdx: number) => (
+                        <div key={bIdx} className="mb-8">
+                          <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1">
+                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>
+
+                            {/* 🟢 7. Hide Delete Block if Viewer */}
+                            {isEditing && canEdit && <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>}
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {block.items.map((item: any, iIdx: number) => (
+                              <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
+                                <div className="flex items-center gap-4 flex-1" onClick={() => handleFileClick(item)}>
+                                  <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
+                                  <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {block.items.map((item: any, iIdx: number) => (
-                                    <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
-                                      <div className="flex items-center gap-4 flex-1" onClick={() => handleFileClick(item)}>
-                                        <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
-                                        <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
-                                      </div>
-                                      {/* 🟢 8. Hide Delete Item X if Viewer */}
-                                      {isEditing && canEdit && <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>}
-                                    </div>
-                                  ))}
-                                </div>
-                          {isEditing && (
+
+                                {/* 🟢 8. Hide Delete Item X if Viewer */}
+                                {isEditing && canEdit && <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>}
+                              </div>
+                            ))}
+                          </div>
+                          {isEditing && canEdit && (
                             <div className="mt-4 pt-4 border-t border-slate-50">
                               {addingLinkToBlock === bIdx ? (
                                 <div className="flex items-center gap-2 w-full animate-in fade-in slide-in-from-left-2 duration-200">
