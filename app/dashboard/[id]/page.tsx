@@ -1368,12 +1368,13 @@ export default function DynamicDashboard() {
       )}
 
       <DashboardChat contextData={{ title: config?.title }} />
-<InviteModal 
-  isOpen={showInviteModal} 
-  onClose={() => setShowInviteModal(false)} 
-  dashboardTitle={config?.title || "Dashboard"} 
-  shareToken={config?.share_token} 
-/>
+      <InviteModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        dashboardTitle={config?.title || "Dashboard"}
+        shareToken={config?.share_token}
+        dashboardId={dashboardId}  
+      />
     </div>
   );
 }
