@@ -726,6 +726,14 @@ export default function DynamicDashboard() {
         </div>
       </nav>
 
+      {/* 🟢 DEBUG BANNER: Remove this after testing */}
+      <div className="bg-amber-100 text-amber-900 p-2 text-center text-xs font-mono border-b border-amber-200">
+        DEBUG INFO:
+        <span className="font-bold mx-2">Can Edit: {canEdit ? "YES" : "NO"}</span> |
+        <span className="mx-2">User ID: {config?.user_id?.substring(0, 5)}...</span> |
+        <span className="mx-2">Role Check: {canEdit && config?.user_id !== (supabase.auth.getUser() as any)?.id ? "Permission Table" : "Owner Override"}</span>
+      </div>
+
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         
         <DndContext
