@@ -726,13 +726,7 @@ export default function DynamicDashboard() {
         </div>
       </nav>
 
-      {/* 🟢 DEBUG BANNER: Remove this after testing */}
-      <div className="bg-amber-100 text-amber-900 p-2 text-center text-xs font-mono border-b border-amber-200">
-        DEBUG INFO:
-        <span className="font-bold mx-2">Can Edit: {canEdit ? "YES" : "NO"}</span> |
-        <span className="mx-2">User ID: {config?.user_id?.substring(0, 5)}...</span> |
-        <span className="mx-2">Role Check: {canEdit && config?.user_id !== (supabase.auth.getUser() as any)?.id ? "Permission Table" : "Owner Override"}</span>
-      </div>
+
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
         
@@ -750,11 +744,11 @@ export default function DynamicDashboard() {
                   onClick={() => canEdit && renameSection(scheduleTitle, 'schedule')}
                 >
                   <i className="fas fa-calendar-alt"></i> {scheduleTitle}
-                  {/* 🟢 Hide Pen if Viewer */}
+                  {/* Hide Pen if Viewer */}
                   {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
                 </div>
 
-                {/* 🟢 Hide Add Button if Viewer */}
+                {/* Hide Add Button if Viewer */}
                 {canEdit && (
                   <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
                 )}
@@ -797,17 +791,25 @@ export default function DynamicDashboard() {
 
                 return (
                     <div key={section} className="space-y-4 animate-in fade-in duration-500">
-                        <div className="flex items-center justify-between group">
-                            <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(section, 'custom')}>
-                                    <i className="fas fa-layer-group"></i> {section} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
-                                </div>
-                                <button onClick={() => deleteSection(section)} className="text-slate-300 hover:text-red-500 transition-colors text-xs" title="Delete Section">
-                                    <i className="fas fa-trash"></i>
-                                </button>
-                            </div>
-                            <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 transition-colors ${canEdit ? "cursor-pointer hover:text-blue-500" : ""}`}
+                          onClick={() => canEdit && renameSection(section, 'custom')}
+                        >
+                          <i className="fas fa-layer-group"></i> {section}
+                          {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
                         </div>
+
+                        {/* 🟢 Hide Trash Can */}
+                        {canEdit && (
+                          <button onClick={() => deleteSection(section)} className="text-slate-300 hover:text-red-500 transition-colors text-xs" title="Delete Section">
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        )}
+                      </div>
+                      {canEdit && <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>}
+                    </div>
                         <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-transparent p-2 transition-colors hover:border-slate-200/20">
                                 {sectionCards.map((card) => ( <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} /> ))}
@@ -827,7 +829,9 @@ export default function DynamicDashboard() {
         </DndContext>
 
         <div className="pt-8 border-t border-slate-200 text-center">
+          {canEdit && (
             <button onClick={addSection} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors"><i className="fas fa-plus"></i> Add New Section</button>
+          )}
         </div>
       </main>
 
