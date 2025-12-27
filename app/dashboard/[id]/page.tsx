@@ -747,19 +747,22 @@ export default function DynamicDashboard() {
         
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             
-           {/* 1. WEEKLY SCHEDULE */}
+         {/* 1. WEEKLY SCHEDULE */}
             {scheduleCards.length > 0 && (
             <div className="space-y-4">
                 <div className="flex items-center justify-between group">
                     <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(scheduleTitle, 'schedule')}>
                         <i className="fas fa-calendar-alt"></i> {scheduleTitle} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
                     </div>
-                    <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
+                    {/* 🟢 PROTECTION: Hide Add button if viewer */}
+                    {currentUserRole !== 'viewer' && (
+                        <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
+                    )}
                 </div>
                 <SortableContext items={weeklyScheduleItems} strategy={rectSortingStrategy} id="Weekly Schedule">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
                         {weeklyScheduleItems.filter(doesCardMatch).map((card) => (
-                            <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} variant="horizontal" />
+                            <SortableCard key={card.id} card={card} onClick={setActiveModal} variant="horizontal" />
                         ))}
                     </div>
                 </SortableContext>
@@ -773,12 +776,15 @@ export default function DynamicDashboard() {
                         <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(missionsTitle, 'missions')}>
                             <i className="fas fa-plane-departure"></i> {missionsTitle} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
                         </div>
-                        <button onClick={() => addNewCard("Missions")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
+                        {/* 🟢 PROTECTION: Hide Add button if viewer */}
+                        {currentUserRole !== 'viewer' && (
+                            <button onClick={() => addNewCard("Missions")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>
+                        )}
                     </div>
                     <SortableContext items={missionSectionItems} strategy={rectSortingStrategy} id="Missions">
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
                             {missionSectionItems.filter(doesCardMatch).map((card) => (
-                                <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} variant={card.id === 'missions-status' ? 'mission' : 'vertical'} />
+                                <SortableCard key={card.id} card={card} onClick={setActiveModal} variant={card.id === 'missions-status' ? 'mission' : 'vertical'} />
                             ))}
                         </div>
                     </SortableContext>
@@ -799,15 +805,21 @@ export default function DynamicDashboard() {
                                 <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 cursor-pointer hover:text-blue-500 transition-colors" onClick={() => renameSection(section, 'custom')}>
                                     <i className="fas fa-layer-group"></i> {section} <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>
                                 </div>
-                                <button onClick={() => deleteSection(section)} className="text-slate-300 hover:text-red-500 transition-colors text-xs" title="Delete Section">
-                                    <i className="fas fa-trash"></i>
-                                </button>
+                                {/* 🟢 PROTECTION: Hide Delete Section button if viewer */}
+                                {currentUserRole !== 'viewer' && (
+                                    <button onClick={() => deleteSection(section)} className="text-slate-300 hover:text-red-500 transition-colors text-xs" title="Delete Section">
+                                        <i className="fas fa-trash"></i>
+                                    </button>
+                                )}
                             </div>
-                            <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>
+                            {/* 🟢 PROTECTION: Hide Add Card button if viewer */}
+                            {currentUserRole !== 'viewer' && (
+                                <button onClick={() => addNewCard(section)} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add Card</button>
+                            )}
                         </div>
                         <SortableContext items={sectionCards} strategy={rectSortingStrategy} id={section}>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] rounded-xl border-2 border-dashed border-transparent p-2 transition-colors hover:border-slate-200/20">
-                                {sectionCards.map((card) => ( <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} /> ))}
+                                {sectionCards.map((card) => ( <SortableCard key={card.id} card={card} onClick={setActiveModal} /> ))}
                                 {sectionCards.length === 0 && ( <div className="col-span-full flex items-center justify-center text-slate-300 text-sm font-medium italic h-24">Drop cards here</div> )}
                             </div>
                         </SortableContext>
@@ -824,7 +836,10 @@ export default function DynamicDashboard() {
         </DndContext>
 
         <div className="pt-8 border-t border-slate-200 text-center">
-            <button onClick={addSection} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors"><i className="fas fa-plus"></i> Add New Section</button>
+            {/* 🟢 PROTECTION: Hide Add Section button if viewer */}
+            {currentUserRole !== 'viewer' && (
+                <button onClick={addSection} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-slate-100 text-slate-500 font-bold hover:bg-slate-200 transition-colors"><i className="fas fa-plus"></i> Add New Section</button>
+            )}
         </div>
       </main>
 
