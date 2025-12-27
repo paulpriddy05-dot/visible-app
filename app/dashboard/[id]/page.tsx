@@ -188,124 +188,77 @@ export default function DynamicDashboard() {
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [showInviteModal, setShowInviteModal] = useState(false);
 
-  'use client';
+  useEffect(() => {
+    if (!dashboardId) return;
+    const initDashboard = async () => {
+      setLoading(true);
 
-  import { useEffect, useState } from 'react';
-  // ... other imports like supabase, etc.
+      // 1. Get User Session
+      const { data: { user } } = await supabase.auth.getUser();
 
-  export default function YourDashboardComponent({ dashboardId }) {
-    const [loading, setLoading] = useState(true);
-    const [canEdit, setCanEdit] = useState(false);
-    const [config, setConfig] = useState(null);
-    const [sections, setSections] = useState([]);
-    const [scheduleTitle, setScheduleTitle] = useState('');
-    const [missionsTitle, setMissionsTitle] = useState('');
-    // ... other state
+      // 2. Fetch Dashboard Config
+      const { data: dashConfig, error } = await supabase
+        .from('dashboards')
+        .select('*')
+        .eq('id', dashboardId)
+        .single();
 
-    useEffect(() => {
-      if (!dashboardId) return;
+      if (error || !dashConfig) {
+        console.error("Dashboard Load Error:", error);
+        return;
+      }
 
-      const initDashboard = async () => {
-        setLoading(true);
+      // 🟢 3. BULLETPROOF PERMISSION CHECK
+      // We use 'limit(1)' instead of 'single()' to avoid 406 crashes on empty results
+      let userCanEdit = false;
 
-        try {
-          // 1. Get authenticated user
-          const {
-            data: { user },
-            error: userError,
-          } = await supabase.auth.getUser();
+      if (user) {
+        // A. Check Owner
+        if (dashConfig.user_id === user.id) {
+          console.log("✅ User is OWNER");
+          userCanEdit = true;
+        } else {
+          // B. Check Permissions Table
+          // 🟢 THIS IS THE FIX: Using .limit(1) never crashes.
+          const { data: permList, error: permError } = await supabase
+            .from('dashboard_permissions')
+            .select('role')
+            .eq('dashboard_id', dashboardId)
+            .eq('user_email', user.email)
+            .limit(1);
 
-          if (userError) {
-            console.warn('Could not retrieve user session:', userError.message);
-            // Proceed as anonymous viewer
-          }
-
-          // 2. Fetch dashboard configuration
-          const { data: dashConfig, error: configError } = await supabase
-            .from('dashboards')
-            .select('*')
-            .eq('id', dashboardId)
-            .single();
-
-          if (configError || !dashConfig) {
-            console.error('Failed to load dashboard:', configError?.message || 'Not found');
-            // You could set an error state here to show UI feedback
-            return;
-          }
-
-          // 3. Permission check
-          let userCanEdit = false;
-
-          if (user) {
-            if (dashConfig.user_id === user.id) {
-              console.log('✅ User is OWNER');
-              userCanEdit = true;
-            } else {
-              const { data: permList, error: permError } = await supabase
-                .from('dashboard_permissions')
-                .select('role')
-                .eq('dashboard_id', dashboardId)
-                .eq('user_email', user.email)
-                .limit(1);
-
-              if (permError) {
-                console.error('Permission check error:', permError.message);
-              } else if (permList?.length > 0 && permList[0].role === 'edit') {
-                console.log('✅ User is EDITOR');
-                userCanEdit = true;
-              } else {
-                console.log('👁️ User is VIEWER (or no explicit access)');
-              }
-            }
+          if (permError) {
+            console.error("Permission Check Failed:", permError);
+          } else if (permList && permList.length > 0 && permList[0].role === 'edit') {
+            console.log("✅ User is EDITOR");
+            userCanEdit = true;
           } else {
-            console.log('👁️ No logged-in user → VIEWER mode');
+            console.log("❌ User is VIEWER (or no access found)");
           }
-
-          setCanEdit(userCanEdit);
-
-          // 4. Fetch or create share token
-          const { data: secureToken, error: tokenError } = await supabase.rpc(
-            'get_or_create_invite_token',
-            { p_dashboard_id: dashboardId }
-          );
-
-          if (tokenError) {
-            console.warn('Could not fetch share token:', tokenError.message);
-          } else if (secureToken) {
-            dashConfig.share_token = secureToken;
-          }
-
-          // 5. Apply config to state
-          setConfig(dashConfig);
-          if (dashConfig.settings?.sections) setSections(dashConfig.settings.sections);
-          if (dashConfig.settings?.scheduleTitle) setScheduleTitle(dashConfig.settings.scheduleTitle);
-          if (dashConfig.settings?.missionsTitle) setMissionsTitle(dashConfig.settings.missionsTitle);
-
-          // 6. Load external data with graceful error handling
-          try {
-            await fetchSheetData(dashConfig); // Must handle 404 inside this function
-          } catch (sheetError) {
-            console.warn('Google Sheet data failed to load (404 or other):', sheetError.message);
-            // Optionally set a fallback state or show a message in UI
-          }
-
-          await Promise.allSettled([
-            fetchManualCards().catch(() => console.warn('Manual cards failed')),
-            fetchGenericWidgets().catch(() => console.warn('Generic widgets failed')),
-          ]);
-
-        } catch (unexpectedError) {
-          console.error('Unexpected error initializing dashboard:', unexpectedError);
-        } finally {
-          setLoading(false);
         }
-      };
+      }
 
-      initDashboard();
-    }, [dashboardId]);
+      setCanEdit(userCanEdit);
 
-    // ... rest of your component JSX
-  }
+      // 4. Secure Token Logic
+      const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
+      if (secureToken) {
+        dashConfig.share_token = secureToken;
+      }
+
+      // 5. Load Data
+      setConfig(dashConfig);
+      if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
+      if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
+      if (dashConfig.settings?.missionsTitle) { setMissionsTitle(dashConfig.settings.missionsTitle); }
+
+      await fetchSheetData(dashConfig);
+      await fetchManualCards();
+      await fetchGenericWidgets();
+      setLoading(false);
+    };
+    initDashboard();
+  }, [dashboardId]);
 
   const loadSheetData = async (url: string, card: any) => {
     try {
@@ -816,7 +769,7 @@ export default function DynamicDashboard() {
                   <i className="fas fa-calendar-alt"></i> {scheduleTitle} {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
                 </div>
                 {canEdit && <button onClick={() => addNewCard("Weekly Schedule")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>}
-
+            
               </div>
               <SortableContext items={weeklyScheduleItems} strategy={rectSortingStrategy} id="Weekly Schedule">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
@@ -1353,39 +1306,39 @@ export default function DynamicDashboard() {
                   {activeCard.response_song && <div className="mt-2 ml-4"><div className="bg-purple-50 text-purple-900 p-3 rounded-md text-sm italic border border-purple-100 shadow-sm">{activeCard.response_song}</div></div>}
                 </div>
               ) : (
-                /* MANUAL CARD VIEW */
-                !showDocPreview && (
-                  <div className="p-0">
-                    <div className="p-8">
-                      {/* 🟢 6. Hide Add Buttons if Viewer */}
-                      {isEditing && canEdit && (
-                        <div className="flex flex-col gap-3">
-                          {getBlocks(activeCard).length === 0 && (
-                            <button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm"><i className="fas fa-plus-circle mr-2"></i> Start Adding Files</button>
-                          )}
-                          <button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">+ Create New Category Block</button>
-                        </div>
-                      )}
-
-                      {getBlocks(activeCard).map((block: any, bIdx: number) => (
-                        <div key={bIdx} className="mb-8">
-                          <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1">
-                            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>
-                            {/* 🟢 7. Hide Delete Block if Viewer */}
-                            {isEditing && canEdit && <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>}
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {block.items.map((item: any, iIdx: number) => (
-                              <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
-                                <div className="flex items-center gap-4 flex-1" onClick={() => handleFileClick(item)}>
-                                  <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
-                                  <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
-                                </div>
-                                {/* 🟢 8. Hide Delete Item X if Viewer */}
-                                {isEditing && canEdit && <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>}
+                      /* MANUAL CARD VIEW */
+                      !showDocPreview && (
+                        <div className="p-0">
+                          <div className="p-8">
+                            {/* 🟢 6. Hide Add Buttons if Viewer */}
+                            {isEditing && canEdit && (
+                              <div className="flex flex-col gap-3">
+                                {getBlocks(activeCard).length === 0 && (
+                                  <button onClick={() => updateResources([{ title: "General Files", items: [] }])} className="w-full py-4 border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 rounded-xl font-bold hover:bg-blue-100 hover:border-blue-400 transition-all shadow-sm"><i className="fas fa-plus-circle mr-2"></i> Start Adding Files</button>
+                                )}
+                                <button onClick={addBlock} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm font-bold hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-all">+ Create New Category Block</button>
                               </div>
-                            ))}
-                          </div>
+                            )}
+
+                            {getBlocks(activeCard).map((block: any, bIdx: number) => (
+                              <div key={bIdx} className="mb-8">
+                                <div className="flex justify-between items-end mb-3 border-b border-slate-100 pb-1">
+                                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest">{block.title}</h4>
+                                  {/* 🟢 7. Hide Delete Block if Viewer */}
+                                  {isEditing && canEdit && <button onClick={() => deleteBlock(bIdx)} className="text-[10px] text-red-400 hover:text-red-600 uppercase font-bold">Delete Block</button>}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {block.items.map((item: any, iIdx: number) => (
+                                    <div key={iIdx} className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:shadow-md hover:border-blue-400 transition-all group cursor-pointer relative">
+                                      <div className="flex items-center gap-4 flex-1" onClick={() => handleFileClick(item)}>
+                                        <div className="w-10 h-10 rounded-full bg-slate-50 text-slate-600 group-hover:bg-blue-50 group-hover:text-blue-500 flex items-center justify-center transition-colors">{getFileIcon(item)}</div>
+                                        <div className="font-bold text-slate-800 text-sm group-hover:text-blue-600">{item.title}</div>
+                                      </div>
+                                      {/* 🟢 8. Hide Delete Item X if Viewer */}
+                                      {isEditing && canEdit && <button onClick={() => deleteItemFromBlock(bIdx, iIdx)} className="absolute top-2 right-2 text-slate-200 hover:text-red-500 p-1"><i className="fas fa-times-circle"></i></button>}
+                                    </div>
+                                  ))}
+                                </div>
                           {isEditing && (
                             <div className="mt-4 pt-4 border-t border-slate-50">
                               {addingLinkToBlock === bIdx ? (
