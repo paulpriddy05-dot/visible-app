@@ -192,7 +192,7 @@ export default function DynamicDashboard() {
     const initDashboard = async () => {
         setLoading(true);
         
-        // 1. Fetch the Dashboard
+        // 1. 🟢 SECURE FETCH: This gets the dashboard config
         const { data: dashConfig, error } = await supabase
             .from('dashboards')
             .select('*')
@@ -201,27 +201,23 @@ export default function DynamicDashboard() {
 
         if (error || !dashConfig) {
             console.error("Dashboard Load Error:", error);
-            return alert("Dashboard not found");
+            // Optional: Handle 404
+            return;
         }
 
-        // 🟢 SELF-HEALING FIX: 
-        // If the database returns a dashboard with NO token, create one immediately.
-        if (!dashConfig.share_token) {
-            console.log("🩹 Repairing missing token...");
-            const newToken = crypto.randomUUID(); // Generates a secure ID
-            
-            // Save to DB
-            await supabase
-                .from('dashboards')
-                .update({ share_token: newToken })
-                .eq('id', dashboardId);
-            
-            // Update local state immediately so the Invite button works NOW
-            dashConfig.share_token = newToken; 
+        // 2. 🟢 GUARANTEE TOKEN: Call the secure RPC we just made
+        // This ensures the token exists in the DB and matches what we use here.
+        const { data: secureToken } = await supabase
+            .rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
+
+        if (secureToken) {
+            dashConfig.share_token = secureToken; // Sync frontend with backend
         }
 
-        // 2. Set Config & Continue
+        // 3. Set Config & Continue
         setConfig(dashConfig);
+        
+        // ... (Keep your existing setups) ...
         if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
         if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
         if (dashConfig.settings?.missionsTitle) { setMissionsTitle(dashConfig.settings.missionsTitle); }
