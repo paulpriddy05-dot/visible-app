@@ -1310,7 +1310,7 @@ export default function DynamicDashboard() {
                     <div>
                         <h4 className="font-bold text-slate-800 text-lg">Organize Your Projects</h4>
                         <p className="text-sm leading-relaxed mt-1">
-                            Create <strong>Manual Cards</strong> to group related Google Docs, PDFs, and links in one place. Drag and drop cards between sections to manage your workflow stages.
+                            Create <strong>Cards</strong> to group related Google Docs, PDFs, and links in one place. Drag and drop cards between sections to manage your workflow stages.
                         </p>
                     </div>
                 </div>

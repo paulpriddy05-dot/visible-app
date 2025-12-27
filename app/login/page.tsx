@@ -9,17 +9,19 @@ import Logo from "@/components/Logo";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // 1. Capture the destination URL (e.g., from an invite link)
   const nextUrl = searchParams.get("next"); 
 
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'login' | 'signup' | 'forgot'>('login');
   
+  // Auto-fill email if passed in URL (e.g. from invite link)
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  // 1. Session Listener (Kept from your original code)
+  // 2. Session Listener: Auto-redirect if already logged in
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -38,7 +40,7 @@ function LoginContent() {
     return () => subscription.unsubscribe();
   }, [nextUrl, router]);
 
-  // 2. Email/Password Auth Handler (Kept from your original code)
+  // 3. Email/Password Auth Handler
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault(); 
     setLoading(true);
@@ -52,7 +54,11 @@ function LoginContent() {
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${origin}/auth/callback?next=${nextUrl || '/dashboard'}` },
+          options: { 
+            // 🟢 CRITICAL: Pass the 'next' URL to the callback so the user
+            // lands on the invite page after verifying their email.
+            emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextUrl || '/dashboard')}` 
+          },
         });
         if (error) throw error;
         setMessage('Check your email for the confirmation link!');
@@ -81,7 +87,7 @@ function LoginContent() {
     }
   };
 
-  // 3. 🟢 NEW: Google OAuth Handler
+  // 4. 🟢 NEW: Google OAuth Handler
   const handleGoogleLogin = async () => {
     setLoading(true);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
@@ -89,7 +95,8 @@ function LoginContent() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${origin}/auth/callback?next=${nextUrl || '/dashboard'}`,
+        // Pass the 'next' param to the callback so invite flow persists
+        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextUrl || '/dashboard')}`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -143,7 +150,7 @@ function LoginContent() {
                         <button 
                             onClick={handleGoogleLogin}
                             type="button"
-                            className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+                            className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-50 transition-all shadow-sm transform hover:-translate-y-0.5"
                         >
                             {/* Google Icon SVG */}
                             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-5 w-5" />
