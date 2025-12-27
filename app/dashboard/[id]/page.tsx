@@ -155,10 +155,11 @@ export default function DynamicDashboard() {
   const params = useParams();
   const dashboardId = params.id as string;
   
-  // 🟢 MOVED THESE INSIDE THE COMPONENT TO FIX ERROR #321
+  // ✅ CORRECT - Paste them here
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [currentUserRole, setCurrentUserRole] = useState<'owner' | 'editor' | 'viewer'>('viewer');
   const [currentUserId, setCurrentUserId] = useState<string>("");
+
 
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -747,7 +748,7 @@ export default function DynamicDashboard() {
         
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             
-         {/* 1. WEEKLY SCHEDULE */}
+           {/* 1. WEEKLY SCHEDULE */}
             {scheduleCards.length > 0 && (
             <div className="space-y-4">
                 <div className="flex items-center justify-between group">
