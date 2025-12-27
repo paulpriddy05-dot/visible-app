@@ -9,13 +9,14 @@ import Logo from "@/components/Logo";
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // 1. Capture the destination URL (e.g., from an invite link)
+  
+  // 1. Capture the destination URL (e.g., '/join/abc-123')
   const nextUrl = searchParams.get("next"); 
 
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'login' | 'signup' | 'forgot'>('login');
   
-  // Auto-fill email if passed in URL (e.g. from invite link)
+  // Auto-fill email if passed in URL
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -26,13 +27,14 @@ function LoginContent() {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
+        // If we have a destination, go there. Otherwise, dashboard.
         router.push(nextUrl || '/dashboard');
       }
     };
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session) {
         router.push(nextUrl || '/dashboard');
       }
     });
@@ -47,7 +49,10 @@ function LoginContent() {
     setMessage('');
     setErrorMsg('');
 
+    // Safe origin check for SSR
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    // 🟢 ENCODE THE URL: This prevents the '?' in the invite link from breaking the redirect
+    const safeNext = encodeURIComponent(nextUrl || '/dashboard');
 
     try {
       if (view === 'signup') {
@@ -55,9 +60,8 @@ function LoginContent() {
           email,
           password,
           options: { 
-            // 🟢 CRITICAL: Pass the 'next' URL to the callback so the user
-            // lands on the invite page after verifying their email.
-            emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextUrl || '/dashboard')}` 
+            // 🟢 CRITICAL FIX: We encode the 'next' param so the full link survives the email
+            emailRedirectTo: `${origin}/auth/callback?next=${safeNext}` 
           },
         });
         if (error) throw error;
@@ -78,7 +82,7 @@ function LoginContent() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         
-        // Listener handles the redirect, so we just wait
+        // The useEffect listener above handles the redirect
         router.push(nextUrl || '/dashboard');
       }
     } catch (err: any) {
@@ -87,16 +91,17 @@ function LoginContent() {
     }
   };
 
-  // 4. 🟢 NEW: Google OAuth Handler
+  // 4. Google OAuth Handler
   const handleGoogleLogin = async () => {
     setLoading(true);
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const safeNext = encodeURIComponent(nextUrl || '/dashboard');
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // Pass the 'next' param to the callback so invite flow persists
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(nextUrl || '/dashboard')}`,
+        // 🟢 CRITICAL FIX: Same encoding here for Google
+        redirectTo: `${origin}/auth/callback?next=${safeNext}`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -144,7 +149,7 @@ function LoginContent() {
 
             <div className="space-y-5">
                 
-                {/* 🟢 NEW: Google Button (Only shown on Login/Signup, hidden on Forgot Password) */}
+                {/* Google Button */}
                 {view !== 'forgot' && (
                     <>
                         <button 
@@ -152,7 +157,6 @@ function LoginContent() {
                             type="button"
                             className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-50 transition-all shadow-sm transform hover:-translate-y-0.5"
                         >
-                            {/* Google Icon SVG */}
                             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="h-5 w-5" />
                             <span>Continue with Google</span>
                         </button>
@@ -165,7 +169,7 @@ function LoginContent() {
                     </>
                 )}
 
-                {/* ORIGINAL FORM (Email/Password) */}
+                {/* Email Form */}
                 <form onSubmit={handleAuth} className="flex flex-col gap-4">
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-1.5">Email</label>
