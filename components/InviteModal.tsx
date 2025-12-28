@@ -6,7 +6,7 @@ import { sendInvite } from "@/app/actions/send-invite";
 
 export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToken, dashboardId }: any) {
     const [email, setEmail] = useState("");
-    const [role, setRole] = useState("view");
+    const [role, setRole] = useState("viewer");
     const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
     // Member Data
@@ -32,9 +32,9 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
 
     const fetchMembers = async () => {
         setLoadingMembers(true);
-        // 🟢 Fetching permissions
+        // 🟢 FIX: Point to 'dashboard_access' to match the dashboard logic
         const { data, error } = await supabase
-            .from('dashboard_permissions')
+            .from('dashboard_access')
             .select('*')
             .eq('dashboard_id', dashboardId);
 
@@ -47,11 +47,12 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         setStatus('sending');
 
         // 1. Save Permission to Database (Grant Access)
+        // 🟢 FIX: Write to 'dashboard_access'
         const { error: dbError } = await supabase
-            .from('dashboard_permissions')
+            .from('dashboard_access')
             .upsert({
                 dashboard_id: dashboardId,
-                user_email: email,
+                user_email: email, // Ensure your table has this column!
                 role: role
             }, { onConflict: 'dashboard_id, user_email' });
 
@@ -77,16 +78,17 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         }
     };
 
-    // 🟢 NEW: Update Role for existing member
+    // 🟢 Update Role for existing member
     const updateMemberRole = async (memberId: string, newRole: string) => {
         // Optimistic Update (Update UI immediately)
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
 
         // DB Update
+        // 🟢 FIX: Write to 'dashboard_access'
         const { error } = await supabase
-            .from('dashboard_permissions')
+            .from('dashboard_access')
             .update({ role: newRole })
-            .eq('id', memberId); // Assuming your permission table has a primary key 'id'
+            .eq('id', memberId);
 
         if (error) {
             console.error("Failed to update role", error);
@@ -100,8 +102,9 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         // Optimistic Update
         setMembers(prev => prev.filter(m => m.user_email !== memberEmail));
 
+        // 🟢 FIX: Delete from 'dashboard_access'
         await supabase
-            .from('dashboard_permissions')
+            .from('dashboard_access')
             .delete()
             .eq('dashboard_id', dashboardId)
             .eq('user_email', memberEmail);
@@ -163,8 +166,8 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                     onChange={(e) => setRole(e.target.value)}
                                     className="px-3 py-2 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                                 >
-                                    <option value="view">Viewer</option>
-                                    <option value="edit">Editor</option>
+                                    <option value="viewer">Viewer</option>
+                                    <option value="editor">Editor</option>
                                 </select>
 
                                 <button
@@ -218,12 +221,12 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                         <div key={member.id} className="flex items-center justify-between group">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs uppercase border border-slate-200">
-                                                    {member.user_email?.substring(0, 2)}
+                                                    {member.user_email ? member.user_email.substring(0, 2) : "??"}
                                                 </div>
                                                 <div>
                                                     <div className="text-sm font-bold text-slate-700">{member.user_email}</div>
                                                     <div className="text-[10px] text-slate-400">
-                                                        {member.role === 'edit' ? 'Editor' : 'Viewer'}
+                                                        {['editor', 'edit', 'owner'].includes(member.role) ? 'Editor' : 'Viewer'}
                                                     </div>
                                                 </div>
                                             </div>
@@ -231,12 +234,12 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                             <div className="flex items-center gap-2">
                                                 {/* 🟢 Role Changer Dropdown */}
                                                 <select
-                                                    value={member.role}
+                                                    value={['editor', 'edit', 'owner'].includes(member.role) ? 'editor' : 'viewer'}
                                                     onChange={(e) => updateMemberRole(member.id, e.target.value)}
                                                     className="text-xs font-bold uppercase bg-transparent border-none text-right cursor-pointer text-slate-500 hover:text-blue-600 focus:ring-0 outline-none py-1 pr-1"
                                                 >
-                                                    <option value="view">Viewer</option>
-                                                    <option value="edit">Editor</option>
+                                                    <option value="viewer">Viewer</option>
+                                                    <option value="editor">Editor</option>
                                                 </select>
 
                                                 {/* Remove Button */}
