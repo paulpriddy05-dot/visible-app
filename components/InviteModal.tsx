@@ -46,15 +46,34 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         e.preventDefault();
         setStatus('sending');
 
-        // 1. Save Permission to Database (Grant Access)
-        // 🟢 FIX: Write to 'dashboard_access'
-        const { error: dbError } = await supabase
+        // 🟢 FIX: Check if they exist first (Bypasses the need for Unique Constraint)
+        const { data: existing } = await supabase
             .from('dashboard_access')
-            .upsert({
-                dashboard_id: dashboardId,
-                user_email: email, // Ensure your table has this column!
-                role: role
-            }, { onConflict: 'dashboard_id, user_email' });
+            .select('id')
+            .eq('dashboard_id', dashboardId)
+            .eq('user_email', email)
+            .maybeSingle();
+
+        let dbError;
+
+        if (existing) {
+            // A. Update existing user
+            const { error } = await supabase
+                .from('dashboard_access')
+                .update({ role })
+                .eq('id', existing.id);
+            dbError = error;
+        } else {
+            // B. Add new user
+            const { error } = await supabase
+                .from('dashboard_access')
+                .insert({
+                    dashboard_id: dashboardId,
+                    user_email: email,
+                    role
+                });
+            dbError = error;
+        }
 
         if (dbError) {
             console.error("Permission Save Error:", dbError);
@@ -65,9 +84,10 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         // 2. Send the Email Notification
         const result = await sendInvite(email, dashboardTitle, shareToken, role);
 
+        // ... (The rest of your function stays the same) ...
         if (result.success) {
             setStatus('success');
-            fetchMembers(); // Refresh list
+            fetchMembers();
             setTimeout(() => {
                 setStatus('idle');
                 setEmail("");
