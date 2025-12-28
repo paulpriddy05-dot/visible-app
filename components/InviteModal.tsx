@@ -1,26 +1,38 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase"; // Ensure this path matches your project
+import { supabase } from "@/lib/supabase";
 import { sendInvite } from "@/app/actions/send-invite";
 
 export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToken, dashboardId }: any) {
     const [email, setEmail] = useState("");
-    const [role, setRole] = useState("view"); // Default to 'view'
+    const [role, setRole] = useState("view");
     const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+
+    // Member Data
     const [members, setMembers] = useState<any[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+    const [currentUser, setCurrentUser] = useState<any>(null);
 
-    // 1. Fetch Members when modal opens
+    // UI States
+    const [copyLabel, setCopyLabel] = useState("Copy Link");
+
+    // 1. Fetch Members & Current User when modal opens
     useEffect(() => {
         if (isOpen && dashboardId) {
+            fetchCurrentUser();
             fetchMembers();
         }
     }, [isOpen, dashboardId]);
 
+    const fetchCurrentUser = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUser(user);
+    };
+
     const fetchMembers = async () => {
         setLoadingMembers(true);
-        // 🟢 Assumption: You have a table 'dashboard_permissions' linking users to dashboards
+        // 🟢 Fetching permissions
         const { data, error } = await supabase
             .from('dashboard_permissions')
             .select('*')
@@ -50,64 +62,86 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         }
 
         // 2. Send the Email Notification
-        // Note: We pass the 'role' so the email can say "You've been invited as an Editor"
-        // You might need to update your sendInvite action to accept this 4th arg, or it will just ignore it for now.
         const result = await sendInvite(email, dashboardTitle, shareToken, role);
 
         if (result.success) {
             setStatus('success');
-            fetchMembers(); // Refresh the list immediately
+            fetchMembers(); // Refresh list
             setTimeout(() => {
                 setStatus('idle');
                 setEmail("");
                 setRole("view");
-                // Don't auto-close immediately so they can see the list update
             }, 2000);
         } else {
             setStatus('error');
         }
     };
 
+    // 🟢 NEW: Update Role for existing member
+    const updateMemberRole = async (memberId: string, newRole: string) => {
+        // Optimistic Update (Update UI immediately)
+        setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
+
+        // DB Update
+        const { error } = await supabase
+            .from('dashboard_permissions')
+            .update({ role: newRole })
+            .eq('id', memberId); // Assuming your permission table has a primary key 'id'
+
+        if (error) {
+            console.error("Failed to update role", error);
+            fetchMembers(); // Revert on error
+        }
+    };
+
     const removeMember = async (memberEmail: string) => {
         if (!confirm(`Remove access for ${memberEmail}?`)) return;
+
+        // Optimistic Update
+        setMembers(prev => prev.filter(m => m.user_email !== memberEmail));
 
         await supabase
             .from('dashboard_permissions')
             .delete()
             .eq('dashboard_id', dashboardId)
             .eq('user_email', memberEmail);
+    };
 
-        fetchMembers();
+    const handleCopyLink = () => {
+        const link = `${window.location.origin}/join/${shareToken}`;
+        navigator.clipboard.writeText(link);
+        setCopyLabel("Copied!");
+        setTimeout(() => setCopyLabel("Copy Link"), 2000);
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                     <h3 className="font-bold text-slate-800">Share "{dashboardTitle}"</h3>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors bg-white rounded-full p-1 hover:bg-slate-200">
-                        <i className="fas fa-times"></i>
+                        <i className="fas fa-times text-lg"></i>
                     </button>
                 </div>
 
                 {/* Body - Scrollable */}
-                <div className="overflow-y-auto p-6 space-y-8">
+                <div className="overflow-y-auto p-6 space-y-8 custom-scroll">
 
                     {/* SECTION 1: INVITE FORM */}
                     <div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Add People</h4>
                         {status === 'success' ? (
-                            <div className="bg-green-50 text-green-700 p-4 rounded-xl flex items-center gap-3 animate-in fade-in">
+                            <div className="bg-green-50 text-green-700 p-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                                 <i className="fas fa-check-circle text-xl"></i>
                                 <div>
-                                    <span className="font-bold block">Invited!</span>
+                                    <span className="font-bold block text-sm">Invited!</span>
                                     <span className="text-xs">Access granted to {email}</span>
                                 </div>
-                                <button onClick={() => setStatus('idle')} className="ml-auto text-sm font-bold underline">Invite another</button>
+                                <button onClick={() => setStatus('idle')} className="ml-auto text-xs font-bold underline hover:text-green-800">Invite another</button>
                             </div>
                         ) : (
                             <form onSubmit={handleSend} className="flex gap-2">
@@ -117,17 +151,17 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                         type="email"
                                         required
                                         placeholder="Enter email address..."
-                                        className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900"
+                                        className="w-full pl-9 pr-4 py-2 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 outline-none text-slate-900 text-sm"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                     />
                                 </div>
 
-                                {/* 🟢 PERMISSION SELECTOR */}
+                                {/* Permission Selector */}
                                 <select
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
-                                    className="px-3 py-2.5 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                                    className="px-3 py-2 rounded-lg border border-slate-300 bg-slate-50 text-slate-700 text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                                 >
                                     <option value="view">Viewer</option>
                                     <option value="edit">Editor</option>
@@ -136,13 +170,13 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                 <button
                                     type="submit"
                                     disabled={status === 'sending'}
-                                    className="bg-blue-600 text-white px-4 py-2.5 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-sm"
+                                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-all shadow-sm text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {status === 'sending' ? <i className="fas fa-spinner fa-spin"></i> : "Invite"}
                                 </button>
                             </form>
                         )}
-                        {status === 'error' && <p className="text-red-500 text-xs mt-2">Error sending invite.</p>}
+                        {status === 'error' && <p className="text-red-500 text-xs mt-2 font-medium">Error saving permission. Check console.</p>}
                     </div>
 
                     <div className="h-px bg-slate-100 w-full"></div>
@@ -152,53 +186,71 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Who has access</h4>
 
                         <div className="space-y-3">
-                            {/* Current User (You) - Mocked for visual completeness */}
-                            <div className="flex items-center justify-between group">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">YO</div>
-                                    <div>
-                                        <div className="text-sm font-bold text-slate-700">You</div>
-                                        <div className="text-[10px] text-slate-400">Owner</div>
+                            {/* Current User */}
+                            {currentUser && (
+                                <div className="flex items-center justify-between group">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs border border-blue-200">
+                                            {currentUser.email?.substring(0, 2).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div className="text-sm font-bold text-slate-700">You</div>
+                                            <div className="text-[10px] text-slate-400">{currentUser.email}</div>
+                                        </div>
                                     </div>
+                                    <span className="text-xs text-slate-400 font-medium italic pr-2">Owner</span>
                                 </div>
-                                <span className="text-xs text-slate-400">Owner</span>
-                            </div>
+                            )}
 
                             {/* List of Fetched Members */}
                             {loadingMembers ? (
-                                <div className="text-center py-4 text-slate-400 text-xs italic">Loading access list...</div>
+                                <div className="text-center py-4 text-slate-400 text-xs italic flex items-center justify-center gap-2">
+                                    <i className="fas fa-circle-notch fa-spin"></i> Loading list...
+                                </div>
                             ) : members.length === 0 ? (
                                 <div className="text-slate-400 text-xs italic ml-11">No other members yet.</div>
                             ) : (
-                                members.map((member) => (
-                                    <div key={member.id} className="flex items-center justify-between group">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs uppercase">
-                                                {member.user_email?.substring(0, 2)}
+                                members.map((member) => {
+                                    // Don't list "Me" again if I'm in the DB
+                                    if (member.user_email === currentUser?.email) return null;
+
+                                    return (
+                                        <div key={member.id} className="flex items-center justify-between group">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs uppercase border border-slate-200">
+                                                    {member.user_email?.substring(0, 2)}
+                                                </div>
+                                                <div>
+                                                    <div className="text-sm font-bold text-slate-700">{member.user_email}</div>
+                                                    <div className="text-[10px] text-slate-400">
+                                                        {member.role === 'edit' ? 'Editor' : 'Viewer'}
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <div className="text-sm font-bold text-slate-700">{member.user_email}</div>
-                                                <div className="text-[10px] text-slate-400">{member.role === 'edit' ? 'Can Edit' : 'Can View'}</div>
+
+                                            <div className="flex items-center gap-2">
+                                                {/* 🟢 Role Changer Dropdown */}
+                                                <select
+                                                    value={member.role}
+                                                    onChange={(e) => updateMemberRole(member.id, e.target.value)}
+                                                    className="text-xs font-bold uppercase bg-transparent border-none text-right cursor-pointer text-slate-500 hover:text-blue-600 focus:ring-0 outline-none py-1 pr-1"
+                                                >
+                                                    <option value="view">Viewer</option>
+                                                    <option value="edit">Editor</option>
+                                                </select>
+
+                                                {/* Remove Button */}
+                                                <button
+                                                    onClick={() => removeMember(member.user_email)}
+                                                    className="text-slate-300 hover:text-red-500 transition-colors px-2 py-1"
+                                                    title="Remove Access"
+                                                >
+                                                    <i className="fas fa-times"></i>
+                                                </button>
                                             </div>
                                         </div>
-
-                                        <div className="flex items-center gap-2">
-                                            {/* Role Badge */}
-                                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${member.role === 'edit' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                                                {member.role}
-                                            </span>
-
-                                            {/* Remove Button */}
-                                            <button
-                                                onClick={() => removeMember(member.user_email)}
-                                                className="text-slate-300 hover:text-red-500 transition-colors px-2"
-                                                title="Remove Access"
-                                            >
-                                                <i className="fas fa-times"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     </div>
@@ -206,17 +258,14 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                     <div className="h-px bg-slate-100 w-full"></div>
 
                     {/* Footer Actions */}
-                    <div className="bg-slate-50 -mx-6 -mb-6 p-4 flex justify-between items-center">
+                    <div className="bg-slate-50 -mx-6 -mb-6 p-4 flex justify-between items-center border-t border-slate-100">
                         <button
-                            onClick={() => {
-                                navigator.clipboard.writeText(`https://usevisible.app/join/${shareToken}`);
-                                alert("Link copied!");
-                            }}
-                            className="text-blue-600 text-sm font-bold hover:underline flex items-center gap-2"
+                            onClick={handleCopyLink}
+                            className="text-blue-600 text-sm font-bold hover:text-blue-700 transition-colors flex items-center gap-2 active:scale-95 transform"
                         >
-                            <i className="fas fa-link"></i> Copy Link
+                            <i className={`fas ${copyLabel === 'Copied!' ? 'fa-check' : 'fa-link'}`}></i> {copyLabel}
                         </button>
-                        <button onClick={onClose} className="text-slate-500 text-sm hover:text-slate-800 font-medium">
+                        <button onClick={onClose} className="text-slate-500 text-sm hover:text-slate-800 font-medium px-4 py-2 hover:bg-slate-100 rounded-lg transition-colors">
                             Done
                         </button>
                     </div>
