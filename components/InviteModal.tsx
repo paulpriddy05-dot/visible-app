@@ -84,10 +84,9 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         // 2. Send the Email Notification
         const result = await sendInvite(email, dashboardTitle, shareToken, role);
 
-        // ... (The rest of your function stays the same) ...
         if (result.success) {
             setStatus('success');
-            fetchMembers();
+            fetchMembers(); // Refresh the list
             setTimeout(() => {
                 setStatus('idle');
                 setEmail("");
