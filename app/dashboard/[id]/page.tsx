@@ -12,7 +12,6 @@ import Link from "next/link";
 import SignOutButton from "@/components/SignOutButton";
 import DashboardChat from "@/components/DashboardChat";
 import InviteModal from "@/components/InviteModal";
-
 // 🟢 CHARTS IMPORTS
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
