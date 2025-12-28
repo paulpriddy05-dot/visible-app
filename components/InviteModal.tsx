@@ -32,7 +32,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
 
     const fetchMembers = async () => {
         setLoadingMembers(true);
-        // Fetch permissions from dashboard_access
+        // 🟢 FIX: Point to 'dashboard_access' to match the dashboard logic
         const { data, error } = await supabase
             .from('dashboard_access')
             .select('*')
@@ -42,19 +42,11 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         setLoadingMembers(false);
     };
 
-    // 🟢 2. Determine MY current role based on the fetched list
-    // We find the row that matches the logged-in user's email
-    const myMemberRow = members.find(m =>
-        m.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()
-    );
-    // If found, use that role. Default to 'viewer' if something is loading/missing.
-    const currentUserRole = myMemberRow?.role || 'viewer';
-
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         setStatus('sending');
 
-        // Check if they exist first
+        // 🟢 FIX: Check if they exist first (Bypasses the need for Unique Constraint)
         const { data: existing } = await supabase
             .from('dashboard_access')
             .select('id')
@@ -89,7 +81,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
             return;
         }
 
-        // Send Email
+        // 2. Send the Email Notification
         const result = await sendInvite(email, dashboardTitle, shareToken, role);
 
         if (result.success) {
@@ -105,12 +97,13 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         }
     };
 
-    // Update Role for existing member
+    // 🟢 Update Role for existing member
     const updateMemberRole = async (memberId: string, newRole: string) => {
-        // Optimistic Update
+        // Optimistic Update (Update UI immediately)
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
 
         // DB Update
+        // 🟢 FIX: Write to 'dashboard_access'
         const { error } = await supabase
             .from('dashboard_access')
             .update({ role: newRole })
@@ -118,7 +111,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
 
         if (error) {
             console.error("Failed to update role", error);
-            fetchMembers(); // Revert
+            fetchMembers(); // Revert on error
         }
     };
 
@@ -128,6 +121,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         // Optimistic Update
         setMembers(prev => prev.filter(m => m.user_email !== memberEmail));
 
+        // 🟢 FIX: Delete from 'dashboard_access'
         await supabase
             .from('dashboard_access')
             .delete()
@@ -214,7 +208,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Who has access</h4>
 
                         <div className="space-y-3">
-                            {/* Current User (You) - 🟢 Updated to show DYNAMIC role */}
+                            {/* Current User */}
                             {currentUser && (
                                 <div className="flex items-center justify-between group">
                                     <div className="flex items-center gap-3">
@@ -226,10 +220,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                             <div className="text-[10px] text-slate-400">{currentUser.email}</div>
                                         </div>
                                     </div>
-                                    {/* 🟢 Fix: Display actual role, not hardcoded 'Owner' */}
-                                    <span className="text-xs text-slate-400 font-medium italic pr-2 capitalize">
-                                        {currentUserRole === 'edit' ? 'Editor' : currentUserRole}
-                                    </span>
+                                    <span className="text-xs text-slate-400 font-medium italic pr-2">Owner</span>
                                 </div>
                             )}
 
@@ -242,53 +233,42 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                 <div className="text-slate-400 text-xs italic ml-11">No other members yet.</div>
                             ) : (
                                 members.map((member) => {
-                                    // 🟢 Fix: Robust filter for "Me"
-                                    if (member.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()) return null;
-
-                                    // 🟢 Fix: Hide NULL rows
-                                    if (!member.user_email || member.user_email === 'NULL') return null;
+                                    // Don't list "Me" again if I'm in the DB
+                                    if (member.user_email === currentUser?.email) return null;
 
                                     return (
                                         <div key={member.id} className="flex items-center justify-between group">
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs uppercase border border-slate-200">
-                                                    {member.user_email.substring(0, 2)}
+                                                    {member.user_email ? member.user_email.substring(0, 2) : "??"}
                                                 </div>
                                                 <div>
                                                     <div className="text-sm font-bold text-slate-700">{member.user_email}</div>
-                                                    <div className="text-[10px] text-slate-400 capitalize">
+                                                    <div className="text-[10px] text-slate-400">
                                                         {['editor', 'edit', 'owner'].includes(member.role) ? 'Editor' : 'Viewer'}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* 🟢 Fix: Only OWNERS see edit controls. Others see text. */}
                                             <div className="flex items-center gap-2">
-                                                {currentUserRole === 'owner' ? (
-                                                    <>
-                                                        <select
-                                                            value={['editor', 'edit', 'owner'].includes(member.role) ? 'editor' : 'viewer'}
-                                                            onChange={(e) => updateMemberRole(member.id, e.target.value)}
-                                                            className="text-xs font-bold uppercase bg-transparent border-none text-right cursor-pointer text-slate-500 hover:text-blue-600 focus:ring-0 outline-none py-1 pr-1"
-                                                        >
-                                                            <option value="viewer">Viewer</option>
-                                                            <option value="editor">Editor</option>
-                                                        </select>
+                                                {/* 🟢 Role Changer Dropdown */}
+                                                <select
+                                                    value={['editor', 'edit', 'owner'].includes(member.role) ? 'editor' : 'viewer'}
+                                                    onChange={(e) => updateMemberRole(member.id, e.target.value)}
+                                                    className="text-xs font-bold uppercase bg-transparent border-none text-right cursor-pointer text-slate-500 hover:text-blue-600 focus:ring-0 outline-none py-1 pr-1"
+                                                >
+                                                    <option value="viewer">Viewer</option>
+                                                    <option value="editor">Editor</option>
+                                                </select>
 
-                                                        <button
-                                                            onClick={() => removeMember(member.user_email)}
-                                                            className="text-slate-300 hover:text-red-500 transition-colors px-2 py-1"
-                                                            title="Remove Access"
-                                                        >
-                                                            <i className="fas fa-times"></i>
-                                                        </button>
-                                                    </>
-                                                ) : (
-                                                    // Non-owners just see the label
-                                                    <span className="text-xs text-slate-400 font-bold uppercase px-2">
-                                                        {member.role === 'owner' ? 'Owner' : member.role}
-                                                    </span>
-                                                )}
+                                                {/* Remove Button */}
+                                                <button
+                                                    onClick={() => removeMember(member.user_email)}
+                                                    className="text-slate-300 hover:text-red-500 transition-colors px-2 py-1"
+                                                    title="Remove Access"
+                                                >
+                                                    <i className="fas fa-times"></i>
+                                                </button>
                                             </div>
                                         </div>
                                     );
