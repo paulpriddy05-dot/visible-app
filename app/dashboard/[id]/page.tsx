@@ -176,10 +176,14 @@ export default function DynamicDashboard() {
 
   useEffect(() => {
     if (!dashboardId) return;
+
     const initDashboard = async () => {
       setLoading(true);
+
+      // 1. Get Current User
       const { data: { user } } = await supabase.auth.getUser();
 
+      // 2. Get Dashboard Config (to check Owner)
       const { data: dashConfig, error } = await supabase
         .from('dashboards')
         .select('*')
@@ -191,40 +195,42 @@ export default function DynamicDashboard() {
         return;
       }
 
-      // 🟢 3. BULLETPROOF PERMISSION CHECK (Fixed for 'dashboard_access')
+      // 🟢 3. ROBUST PERMISSION CHECK
+      // We start by assuming they can't edit
       let userCanEdit = false;
 
       if (user) {
-        // A. Backup Check
+        // A. PRIMARY CHECK: Are you the dashboard creator?
         if (dashConfig.user_id === user.id) {
-          console.log("✅ User is OWNER (via dashboard row)");
+          console.log("✅ User is TRUE OWNER (Created Dashboard)");
           userCanEdit = true;
         } else {
-          // B. Primary Check: 'dashboard_access' table
+          // B. SECONDARY CHECK: Check the Access List
           const { data: accessList, error: accessError } = await supabase
             .from('dashboard_access')
             .select('role')
             .eq('dashboard_id', dashboardId)
             .eq('user_id', user.id)
-            .limit(1);
+            .maybeSingle();
 
-          if (accessError) {
-            console.error("Access Check Failed:", accessError);
-          } else if (accessList && accessList.length > 0) {
-            const role = accessList[0].role;
+          if (!accessError && accessList) {
+            // Normalize role to lower case to handle 'Editor' vs 'editor'
+            const role = accessList.role?.toLowerCase();
+
+            // Check for valid edit roles (including legacy 'edit')
             if (['owner', 'editor', 'edit'].includes(role)) {
-              console.log(`✅ User is ${role.toUpperCase()}`);
+              console.log(`✅ User is ${role.toUpperCase()} (Access Granted)`);
               userCanEdit = true;
             } else {
               console.log(`❌ User is ${role.toUpperCase()} (View Only)`);
             }
-          } else {
-            console.log("❌ User has NO ACCESS row found");
           }
         }
       }
+
       setCanEdit(userCanEdit);
 
+      // Get invite token if owner/editor
       const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
       if (secureToken) {
         dashConfig.share_token = secureToken;
@@ -240,6 +246,7 @@ export default function DynamicDashboard() {
       await fetchGenericWidgets();
       setLoading(false);
     };
+
     initDashboard();
   }, [dashboardId]);
 
