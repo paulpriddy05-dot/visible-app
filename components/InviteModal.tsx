@@ -9,52 +9,62 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
     const [role, setRole] = useState("viewer");
     const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
 
-    // Member Data
+    // Data State
     const [members, setMembers] = useState<any[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
+    const [trueOwnerId, setTrueOwnerId] = useState<string | null>(null);
 
-    // UI States
+    // UI State
     const [copyLabel, setCopyLabel] = useState("Copy Link");
 
-    // 1. Fetch Members & Current User when modal opens
     useEffect(() => {
         if (isOpen && dashboardId) {
-            fetchCurrentUser();
-            fetchMembers();
+            fetchData();
         }
     }, [isOpen, dashboardId]);
 
-    const fetchCurrentUser = async () => {
+    const fetchData = async () => {
+        setLoadingMembers(true);
+
+        // 1. Get Current User
         const { data: { user } } = await supabase.auth.getUser();
         setCurrentUser(user);
-    };
 
-    const fetchMembers = async () => {
-        setLoadingMembers(true);
-        // Fetch permissions from dashboard_access
-        const { data, error } = await supabase
+        // 2. Get Access List
+        const { data: accessData } = await supabase
             .from('dashboard_access')
             .select('*')
             .eq('dashboard_id', dashboardId);
 
-        if (data) setMembers(data);
+        // 3. 🟢 GET TRUE OWNER: Fetch the dashboard to see who actually owns it
+        const { data: dashboardData } = await supabase
+            .from('dashboards')
+            .select('user_id')
+            .eq('id', dashboardId)
+            .single();
+
+        setMembers(accessData || []);
+        setTrueOwnerId(dashboardData?.user_id || null);
         setLoadingMembers(false);
     };
 
-    // 🟢 2. Determine MY current role dynamically
-    // We find the row that matches the logged-in user's email
+    // 🟢 4. Determine MY Role safely
+    const isTrueOwner = currentUser?.id === trueOwnerId;
+
+    // If I am not the true owner, look for my permission in the list
     const myMemberRow = members.find(m =>
         m.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()
     );
-    // If found, use that role. If not found, default to viewer (or owner if I created it logic elsewhere)
-    const currentUserRole = myMemberRow?.role || 'viewer';
+
+    // Final Calculation: If I created it, I am Owner. Otherwise, use list. Default to viewer.
+    const currentUserRole = isTrueOwner ? 'owner' : (myMemberRow?.role || 'viewer');
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         setStatus('sending');
 
-        // Check if they exist first
+        // Check if user exists in list
         const { data: existing } = await supabase
             .from('dashboard_access')
             .select('id')
@@ -65,14 +75,14 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         let dbError;
 
         if (existing) {
-            // A. Update existing user
+            // Update existing
             const { error } = await supabase
                 .from('dashboard_access')
                 .update({ role })
                 .eq('id', existing.id);
             dbError = error;
         } else {
-            // B. Add new user
+            // Insert new
             const { error } = await supabase
                 .from('dashboard_access')
                 .insert({
@@ -94,23 +104,21 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
 
         if (result.success) {
             setStatus('success');
-            fetchMembers(); // Refresh the list
+            fetchData(); // Reload everything
             setTimeout(() => {
                 setStatus('idle');
                 setEmail("");
-                setRole("view");
+                setRole("viewer"); // Reset default
             }, 2000);
         } else {
             setStatus('error');
         }
     };
 
-    // Update Role for existing member
     const updateMemberRole = async (memberId: string, newRole: string) => {
         // Optimistic Update
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
 
-        // DB Update
         const { error } = await supabase
             .from('dashboard_access')
             .update({ role: newRole })
@@ -118,14 +126,13 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
 
         if (error) {
             console.error("Failed to update role", error);
-            fetchMembers(); // Revert
+            fetchData();
         }
     };
 
     const removeMember = async (memberEmail: string) => {
         if (!confirm(`Remove access for ${memberEmail}?`)) return;
 
-        // Optimistic Update
         setMembers(prev => prev.filter(m => m.user_email !== memberEmail));
 
         await supabase
@@ -156,10 +163,10 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                     </button>
                 </div>
 
-                {/* Body - Scrollable */}
+                {/* Body */}
                 <div className="overflow-y-auto p-6 space-y-8 custom-scroll">
 
-                    {/* SECTION 1: INVITE FORM */}
+                    {/* INVITE FORM */}
                     <div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Add People</h4>
                         {status === 'success' ? (
@@ -184,8 +191,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                         onChange={(e) => setEmail(e.target.value)}
                                     />
                                 </div>
-
-                                {/* Permission Selector */}
                                 <select
                                     value={role}
                                     onChange={(e) => setRole(e.target.value)}
@@ -194,7 +199,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                     <option value="viewer">Viewer</option>
                                     <option value="editor">Editor</option>
                                 </select>
-
                                 <button
                                     type="submit"
                                     disabled={status === 'sending'}
@@ -204,17 +208,17 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                 </button>
                             </form>
                         )}
-                        {status === 'error' && <p className="text-red-500 text-xs mt-2 font-medium">Error saving permission. Check console.</p>}
+                        {status === 'error' && <p className="text-red-500 text-xs mt-2 font-medium">Error saving permission.</p>}
                     </div>
 
                     <div className="h-px bg-slate-100 w-full"></div>
 
-                    {/* SECTION 2: WHO HAS ACCESS */}
+                    {/* MEMBER LIST */}
                     <div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Who has access</h4>
-
                         <div className="space-y-3">
-                            {/* Current User (You) - 🟢 Updated to show DYNAMIC role */}
+
+                            {/* 🟢 "You" Section - Uses TRUE OWNER Check */}
                             {currentUser && (
                                 <div className="flex items-center justify-between group">
                                     <div className="flex items-center gap-3">
@@ -226,14 +230,14 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                             <div className="text-[10px] text-slate-400">{currentUser.email}</div>
                                         </div>
                                     </div>
-                                    {/* 🟢 Fix: Display actual role, not hardcoded 'Owner' */}
                                     <span className="text-xs text-slate-400 font-medium italic pr-2 capitalize">
-                                        {currentUserRole === 'edit' ? 'Editor' : currentUserRole}
+                                        {/* Display logic: If true owner, force "Owner". Else show role. */}
+                                        {currentUserRole === 'owner' ? 'Owner' : (currentUserRole === 'editor' ? 'Editor' : 'Viewer')}
                                     </span>
                                 </div>
                             )}
 
-                            {/* List of Fetched Members */}
+                            {/* Access List */}
                             {loadingMembers ? (
                                 <div className="text-center py-4 text-slate-400 text-xs italic flex items-center justify-center gap-2">
                                     <i className="fas fa-circle-notch fa-spin"></i> Loading list...
@@ -242,10 +246,11 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                 <div className="text-slate-400 text-xs italic ml-11">No other members yet.</div>
                             ) : (
                                 members.map((member) => {
-                                    // 🟢 Fix: Robust filter for "Me"
+                                    // Filter out "Me"
                                     if (member.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()) return null;
-
-                                    // 🟢 Fix: Hide NULL rows (prevents the "NULL" user bug)
+                                    // Filter out "True Owner" if they are also in the list (prevents dupes)
+                                    if (member.role === 'owner' && isTrueOwner) return null;
+                                    // Filter out NULLs
                                     if (!member.user_email || member.user_email === 'NULL') return null;
 
                                     return (
@@ -257,17 +262,17 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                                 <div>
                                                     <div className="text-sm font-bold text-slate-700">{member.user_email}</div>
                                                     <div className="text-[10px] text-slate-400 capitalize">
-                                                        {['editor', 'edit', 'owner'].includes(member.role) ? 'Editor' : 'Viewer'}
+                                                        {member.role === 'editor' ? 'Editor' : 'Viewer'}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* 🟢 Fix: Only OWNERS see edit controls. Others see text. */}
                                             <div className="flex items-center gap-2">
+                                                {/* Only True Owner (or Owner role) can edit others */}
                                                 {currentUserRole === 'owner' ? (
                                                     <>
                                                         <select
-                                                            value={['editor', 'edit', 'owner'].includes(member.role) ? 'editor' : 'viewer'}
+                                                            value={member.role === 'editor' ? 'editor' : 'viewer'}
                                                             onChange={(e) => updateMemberRole(member.id, e.target.value)}
                                                             className="text-xs font-bold uppercase bg-transparent border-none text-right cursor-pointer text-slate-500 hover:text-blue-600 focus:ring-0 outline-none py-1 pr-1"
                                                         >
@@ -284,7 +289,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                                         </button>
                                                     </>
                                                 ) : (
-                                                    // Non-owners just see the label
                                                     <span className="text-xs text-slate-400 font-bold uppercase px-2">
                                                         {member.role === 'owner' ? 'Owner' : member.role}
                                                     </span>
@@ -296,20 +300,13 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                             )}
                         </div>
                     </div>
-
-                    <div className="h-px bg-slate-100 w-full"></div>
-
-                    {/* Footer Actions */}
+                    {/* Footer */}
+                    <div className="h-px bg-slate-100 w-full mt-4"></div>
                     <div className="bg-slate-50 -mx-6 -mb-6 p-4 flex justify-between items-center border-t border-slate-100">
-                        <button
-                            onClick={handleCopyLink}
-                            className="text-blue-600 text-sm font-bold hover:text-blue-700 transition-colors flex items-center gap-2 active:scale-95 transform"
-                        >
+                        <button onClick={handleCopyLink} className="text-blue-600 text-sm font-bold hover:text-blue-700 flex items-center gap-2">
                             <i className={`fas ${copyLabel === 'Copied!' ? 'fa-check' : 'fa-link'}`}></i> {copyLabel}
                         </button>
-                        <button onClick={onClose} className="text-slate-500 text-sm hover:text-slate-800 font-medium px-4 py-2 hover:bg-slate-100 rounded-lg transition-colors">
-                            Done
-                        </button>
+                        <button onClick={onClose} className="text-slate-500 text-sm font-medium hover:text-slate-800 px-4">Done</button>
                     </div>
 
                 </div>
