@@ -50,15 +50,21 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
     };
 
     // 🟢 4. Determine MY Role safely
+    // Check if I am the literal creator of this dashboard
     const isTrueOwner = currentUser?.id === trueOwnerId;
 
-    // If I am not the true owner, look for my permission in the list
+    // Look for my permission in the list
     const myMemberRow = members.find(m =>
         m.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()
     );
 
     // Final Calculation: If I created it, I am Owner. Otherwise, use list. Default to viewer.
-    const currentUserRole = isTrueOwner ? 'owner' : (myMemberRow?.role || 'viewer');
+    // We also normalize 'edit'/'editor' just in case.
+    let effectiveRole = myMemberRow?.role || 'viewer';
+    if (effectiveRole === 'edit') effectiveRole = 'editor';
+    if (effectiveRole === 'view') effectiveRole = 'viewer';
+
+    const currentUserRole = isTrueOwner ? 'owner' : effectiveRole;
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -262,7 +268,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                                 <div>
                                                     <div className="text-sm font-bold text-slate-700">{member.user_email}</div>
                                                     <div className="text-[10px] text-slate-400 capitalize">
-                                                        {member.role === 'editor' ? 'Editor' : 'Viewer'}
+                                                        {['editor', 'edit'].includes(member.role) ? 'Editor' : 'Viewer'}
                                                     </div>
                                                 </div>
                                             </div>
@@ -272,7 +278,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                                 {currentUserRole === 'owner' ? (
                                                     <>
                                                         <select
-                                                            value={member.role === 'editor' ? 'editor' : 'viewer'}
+                                                            value={['editor', 'edit'].includes(member.role) ? 'editor' : 'viewer'}
                                                             onChange={(e) => updateMemberRole(member.id, e.target.value)}
                                                             className="text-xs font-bold uppercase bg-transparent border-none text-right cursor-pointer text-slate-500 hover:text-blue-600 focus:ring-0 outline-none py-1 pr-1"
                                                         >
