@@ -642,7 +642,7 @@ export default function DynamicDashboard() {
     setActiveCard(cardToLoad);
     setShowDocPreview(null);
   };
-  
+
   const toggleEditMode = () => { if (isEditing) handleSave(); setIsEditing(!isEditing); }
   const getBgColor = (c: string) => COLOR_MAP[c] || "bg-slate-700";
   const isGoogleDoc = (url: string) => url.includes("docs.google.com") || url.includes("drive.google.com");
@@ -893,32 +893,35 @@ export default function DynamicDashboard() {
                 {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                {/* 🟢 TOGGLE FILES / VISUALIZATION - FIXED RACE CONDITION */}
+                {/* 🟢 TOGGLE FILES / VISUALIZATION - FIXED TO REMEMBER SAVED CHART TYPE */}
                 {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                   <button
                     onClick={() => {
                       if (activeCard.settings?.viewMode) {
+                        // Toggle OFF (Back to Files)
                         const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: null } };
                         setActiveCard(updated);
                       }
                       else {
-                        // 🟢 FIX: Create updated state AND pass it to the loader
-                        const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } };
+                        // Toggle ON (Visualize)
+                        // 🟢 FIX: Check if we have a saved chartType. If yes, go to 'chart' mode. If no, default to 'card'.
+                        const targetMode = activeCard.settings?.chartType ? 'chart' : 'card';
+
+                        const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: targetMode } };
                         setActiveCard(updated);
 
                         if (attachedSheetUrl && !activeCard.data) {
-                          // Pass 'updated' to avoid race condition where loading data resets the viewMode
                           loadSheetData(attachedSheetUrl, updated);
                         }
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode
-                      ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
-                      : "bg-purple-600 text-white border-purple-500 hover:bg-purple-50 animate-pulse"
+                    className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode
+                        ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-50 animate-pulse"
                       }`}
                   >
                     <i className={`fas ${activeCard.settings?.viewMode ? 'fa-folder-open' : 'fa-chart-pie'}`}></i>
-                    {activeCard.settings?.viewMode ? "Back to Files" : "Visualize Data"}
+                    <span className="hidden sm:inline">{activeCard.settings?.viewMode ? "Back to Files" : "Visualize Data"}</span>
                   </button>
                 )}
 
