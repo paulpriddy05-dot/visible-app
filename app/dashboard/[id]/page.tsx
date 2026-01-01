@@ -173,6 +173,7 @@ export default function DynamicDashboard() {
   const newItemTitleRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [googleToken, setGoogleToken] = useState<string>("");
 
   useEffect(() => {
     if (!dashboardId) return;
@@ -255,7 +256,15 @@ export default function DynamicDashboard() {
   const loadSheetData = async (url: string, card: any) => {
     try {
       const csvUrl = toCSVUrl(url);
-      const response = await fetch(csvUrl);
+
+      // 🟢 DEFINE HEADERS DYNAMICALLY
+      const headers: any = {};
+      if (googleToken) {
+        headers.Authorization = `Bearer ${googleToken}`;
+      }
+
+      // 🟢 PASS THE HEADERS
+      const response = await fetch(csvUrl, { headers });
 
       if (!response.ok) {
         console.warn(`Could not load sheet for ${card.title}: ${response.status}`);
@@ -500,7 +509,34 @@ export default function DynamicDashboard() {
   const doesCardMatch = (card: any) => { if (!searchQuery) return true; return JSON.stringify(card).toLowerCase().includes(searchQuery.toLowerCase()); };
   const updateColor = async (newColor: string) => { if (!activeCard || !activeCard.source?.includes("manual")) return; const updatedCard = { ...activeCard, color: newColor }; setActiveCard(updatedCard); setManualCards(manualCards.map(c => c.id === activeCard.id ? updatedCard : c)); await supabase.from('Weeks').update({ color: newColor }).eq('id', activeCard.id); };
 
-  const handleOpenPicker = (bIdx: number) => { setActiveBlockIndex(bIdx); openPicker({ clientId: GOOGLE_CLIENT_ID, developerKey: GOOGLE_API_KEY, viewId: "DOCS", showUploadView: true, showUploadFolders: true, supportDrives: true, multiselect: true, callbackFunction: (data: any) => { if (data.action === "picked") addFilesToBlock(bIdx, data.docs); } }); };
+  const handleOpenPicker = (bIdx: number) => {
+    setActiveBlockIndex(bIdx);
+    openPicker({
+      clientId: GOOGLE_CLIENT_ID,
+      developerKey: GOOGLE_API_KEY,
+      viewId: "DOCS",
+
+      // 🟢 ADD THIS LINE TO SAVE $4,500/YEAR:
+      // This limits access ONLY to files the user selects.
+      // It is classified as "Non-Sensitive" or "Recommended" by Google.
+      customScopes: ['https://www.googleapis.com/auth/drive.file'],
+
+      showUploadView: true,
+      showUploadFolders: true,
+      supportDrives: true,
+      multiselect: true,
+      // inside handleOpenPicker...
+      callbackFunction: (data: any) => {
+        if (data.action === "picked") {
+          // 🟢 SAVE THE TOKEN HERE:
+          if (data.oauthToken) {
+            setGoogleToken(data.oauthToken);
+          }
+          addFilesToBlock(bIdx, data.docs);
+        }
+      }
+    });
+  };
   const addFilesToBlock = async (bIdx: number, files: any[]) => {
     const currentBlocks = getBlocks(activeCard);
 
