@@ -357,10 +357,13 @@ export default function DynamicDashboard() {
     const updatedModalCard = { ...activeCard, settings: newSettings };
     setActiveCard(updatedModalCard);
 
+    // 🟢 UPDATED: Removed the 20-row limit. Now saves the full dataset.
     const cardForList = { ...updatedModalCard };
-    if (cardForList.data && cardForList.data.length > 20) {
-      cardForList.data = cardForList.data.slice(0, 20);
-    }
+
+    // OPTIONAL: Only limit if it's massive (e.g. > 2000 rows) to prevent lag
+    // if (cardForList.data && cardForList.data.length > 2000) { 
+    //   cardForList.data = cardForList.data.slice(0, 2000); 
+    // }
 
     if (activeCard.type === 'generic-sheet') {
       setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? cardForList : w));
