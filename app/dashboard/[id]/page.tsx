@@ -183,7 +183,8 @@ export default function DynamicDashboard() {
       // 1. Get Current User
       const { data: { user } } = await supabase.auth.getUser();
 
-      // 2. Get Dashboard Config (to check Owner)
+      // 2. Get Dashboard Config
+      // We removed the dependency on 'user_id' from this table to stop the 400 Error
       const { data: dashConfig, error } = await supabase
         .from('dashboards')
         .select('*')
@@ -192,54 +193,46 @@ export default function DynamicDashboard() {
 
       if (error || !dashConfig) {
         console.error("Dashboard Load Error:", error);
+        // Optional: You could adding a setLoading(false) here if you want to show an error state
         return;
       }
 
-      // 🟢 3. ROBUST PERMISSION CHECK (Updated to check Email too!)
+      // 3. 🟢 ROBUST PERMISSION CHECK
+      // We determine permissions 100% from the 'dashboard_access' list now.
       let userCanEdit = false;
 
       if (user) {
-        // A. PRIMARY CHECK: Are you the dashboard creator?
-        if (dashConfig.user_id === user.id) {
-          console.log("✅ User is TRUE OWNER (Created Dashboard)");
-          userCanEdit = true;
-        } else {
-          // B. SECONDARY CHECK: Check Access List for ID *OR* Email
-          // We fetch all matching rows for this dashboard
-          const { data: accessList } = await supabase
-            .from('dashboard_access')
-            .select('role, user_id, user_email')
-            .eq('dashboard_id', dashboardId);
+        const { data: accessList } = await supabase
+          .from('dashboard_access')
+          .select('role, user_id, user_email')
+          .eq('dashboard_id', dashboardId);
 
-          if (accessList) {
-            // Find a row that matches EITHER my ID OR my Email
-            const myPermission = accessList.find(row =>
-              row.user_id === user.id ||
-              row.user_email?.toLowerCase() === user.email?.toLowerCase()
-            );
+        if (accessList) {
+          // Find MY permission row by matching EITHER my ID OR my Email
+          // This fixes the bug where invited users (via email) were seen as "Viewers"
+          const myPermission = accessList.find(row =>
+            row.user_id === user.id ||
+            (user.email && row.user_email?.toLowerCase() === user.email.toLowerCase())
+          );
 
-            if (myPermission) {
-              // Normalize role to lower case to handle 'Editor' vs 'editor'
-              const role = myPermission.role?.toLowerCase();
-
-              // Check for valid edit roles
-              if (['owner', 'editor', 'edit'].includes(role)) {
-                console.log(`✅ User is ${role.toUpperCase()} (Access Granted)`);
-                userCanEdit = true;
-              } else {
-                console.log(`❌ User is ${role.toUpperCase()} (View Only)`);
-              }
+          if (myPermission) {
+            const role = myPermission.role?.toLowerCase();
+            // Grant edit access if I am 'owner', 'editor', or 'edit'
+            if (['owner', 'editor', 'edit'].includes(role)) {
+              userCanEdit = true;
+              console.log(`✅ Access Granted: User is ${role}`);
             } else {
-              console.log("❌ User not found in access list");
+              console.log(`ℹ️ View Only: User is ${role}`);
             }
+          } else {
+            console.log("ℹ️ User not found in access list (View Only)");
           }
         }
       }
 
       setCanEdit(userCanEdit);
 
-      // ... (Rest of your existing function stays exactly the same) ...
-      // Get invite token if owner/editor
+      // 4. Load the rest of the dashboard data (Keep existing logic)
       const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
       if (secureToken) {
         dashConfig.share_token = secureToken;

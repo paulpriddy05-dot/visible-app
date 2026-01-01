@@ -13,7 +13,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
     const [members, setMembers] = useState<any[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
     const [currentUser, setCurrentUser] = useState<any>(null);
-    const [trueOwnerId, setTrueOwnerId] = useState<string | null>(null);
 
     // UI State
     const [copyLabel, setCopyLabel] = useState("Copy Link");
@@ -31,39 +30,29 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         const { data: { user } } = await supabase.auth.getUser();
         setCurrentUser(user);
 
-        // 2. Get Access List
+        // 2. Get Access List (This is our Single Source of Truth)
+        // We do NOT fetch 'dashboards' table anymore to avoid the 400 error
         const { data: accessData } = await supabase
             .from('dashboard_access')
             .select('*')
             .eq('dashboard_id', dashboardId);
 
-        // 3. 🟢 GET TRUE OWNER: Fetch the dashboard to see who actually owns it
-        const { data: dashboardData } = await supabase
-            .from('dashboards')
-            .select('user_id')
-            .eq('id', dashboardId)
-            .single();
-
         setMembers(accessData || []);
-        setTrueOwnerId(dashboardData?.user_id || null);
         setLoadingMembers(false);
     };
 
-    // 🟢 4. Determine MY Role safely
-    // Check if I am the literal creator of this dashboard
-    const isTrueOwner = currentUser?.id === trueOwnerId;
-
-    // Look for my permission in the list
+    // 🟢 3. Determine MY Role safely from the list
     const myMemberRow = members.find(m =>
+        m.user_id === currentUser?.id ||
         m.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()
     );
 
-    // Final Calculation: If I created it, I am Owner. Otherwise, use list. Default to viewer.
+    // Normalize roles (handle 'edit' vs 'editor')
     let effectiveRole = myMemberRow?.role || 'viewer';
     if (effectiveRole === 'edit') effectiveRole = 'editor';
     if (effectiveRole === 'view') effectiveRole = 'viewer';
 
-    const currentUserRole = isTrueOwner ? 'owner' : effectiveRole;
+    const currentUserRole = effectiveRole;
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -236,6 +225,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                         </div>
                                     </div>
                                     <span className="text-xs text-slate-400 font-medium italic pr-2 capitalize">
+                                        {/* Display logic: If true owner, force "Owner". Else show role. */}
                                         {currentUserRole === 'owner' ? 'Owner' : (currentUserRole === 'editor' ? 'Editor' : 'Viewer')}
                                     </span>
                                 </div>
@@ -252,8 +242,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                 members.map((member) => {
                                     // Filter out "Me"
                                     if (member.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()) return null;
-                                    // Filter out "True Owner" if they are also in the list (prevents dupes)
-                                    if (member.role === 'owner' && isTrueOwner) return null;
                                     // Filter out NULLs
                                     if (!member.user_email || member.user_email === 'NULL') return null;
 
@@ -266,14 +254,14 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                                 <div>
                                                     <div className="text-sm font-bold text-slate-700">{member.user_email}</div>
                                                     <div className="text-[10px] text-slate-400 capitalize">
-                                                        {['editor', 'edit'].includes(member.role) ? 'Editor' : 'Viewer'}
+                                                        {['editor', 'edit'].includes(member.role) ? 'Editor' : (member.role === 'owner' ? 'Owner' : 'Viewer')}
                                                     </div>
                                                 </div>
                                             </div>
 
                                             <div className="flex items-center gap-2">
-                                                {/* 🟢 CHANGE: Allow Owners OR Editors to manage permissions */}
-                                                {['owner', 'editor', 'edit'].includes(currentUserRole) ? (
+                                                {/* 🟢 CHANGE: Allow Owners OR Editors to manage, but PROTECT the Owner from being edited */}
+                                                {['owner', 'editor', 'edit'].includes(currentUserRole) && member.role !== 'owner' ? (
                                                     <>
                                                         <select
                                                             value={['editor', 'edit'].includes(member.role) ? 'editor' : 'viewer'}
