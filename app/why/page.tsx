@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Metadata } from "next";
-import Logo from "@/components/Logo"; // 🟢 IMPORT ADDED
+import Logo from "@/components/Logo";
 
 export const metadata: Metadata = {
     title: "Why We Built Visible",
@@ -19,7 +19,7 @@ export default function WhyPage() {
 
                 <div className="flex gap-4 text-sm font-medium">
                     <Link href="/login" className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors">Log In</Link>
-                    {/* 🟢 UPDATED: Changed href from "/signup" to "/login" */}
+                    {/* 🟢 FIXED: Changed /signup to /login */}
                     <Link href="/login" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">Get Started &rarr;</Link>
                 </div>
             </nav>
@@ -32,8 +32,9 @@ export default function WhyPage() {
                         See the files <br />
                         <span className="text-slate-400 dark:text-zinc-600 italic">you need.</span>
                     </h1>
+                    {/* 🟢 UPDATED COPY: Focuses on Workflow, not just search */}
                     <p className="text-xl md:text-2xl text-slate-600 dark:text-zinc-400 leading-relaxed max-w-2xl">
-                        Searching is painful. We built Visible to turn scattered Google Drive links into a coherent, customizable dashboard—so you can finally see the work that matters.
+                        Stop searching. Start working. Visible turns scattered links into a focused workflow, putting the exact files you need for <em>This Week</em> right at your fingertips.
                     </p>
                 </section>
 
@@ -58,8 +59,8 @@ export default function WhyPage() {
                 {/* 4. THE PHILOSOPHY (Core Beliefs) */}
                 <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-24">
                     <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm">
-                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-6">
-                            <i className="fas fa-eye text-purple-600 dark:text-purple-400 text-xl"></i>
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6">
+                            <i className="fas fa-eye text-blue-600 dark:text-blue-400 text-xl"></i>
                         </div>
                         <h4 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-3">Visual First</h4>
                         <p className="text-slate-500 dark:text-zinc-400 leading-relaxed">
@@ -67,13 +68,14 @@ export default function WhyPage() {
                         </p>
                     </div>
 
+                    {/* 🟢 UPDATED COPY: Replaced "Calm" with "Data" to match your screenshots */}
                     <div className="bg-white dark:bg-zinc-900 p-8 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm">
-                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-6">
-                            <i className="fas fa-moon text-blue-600 dark:text-blue-400 text-xl"></i>
+                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mb-6">
+                            <i className="fas fa-chart-pie text-purple-600 dark:text-purple-400 text-xl"></i>
                         </div>
-                        <h4 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-3">Calm by Design</h4>
+                        <h4 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-3">Data, not Rows</h4>
                         <p className="text-slate-500 dark:text-zinc-400 leading-relaxed">
-                            No notifications. No "suggested files." Just the things you actively chose to put on your desk today.
+                            Don't just open a spreadsheet; see what it means. Visible instantly visualizes your key metrics so you can track progress without squinting at cells.
                         </p>
                     </div>
 
@@ -83,7 +85,7 @@ export default function WhyPage() {
                         </div>
                         <h4 className="text-xl font-bold text-slate-900 dark:text-zinc-100 mb-3">Context over Content</h4>
                         <p className="text-slate-500 dark:text-zinc-400 leading-relaxed">
-                            A file isn't just a file. It belongs to a project, a goal, or a mission. Visible lets you bundle disparate files (Docs, Sheets, Slides) into unified "Cards" that tell a story.
+                            A file isn't just a file. It belongs to a project, a goal, or a mission. Visible lets you bundle disparate files (Docs, Sheets, Slides) into unified 'Cards' that tell a story.
                         </p>
                     </div>
                 </section>
