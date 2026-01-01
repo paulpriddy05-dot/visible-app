@@ -17,9 +17,9 @@ export default function LandingPage() {
             <nav className="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-slate-100 transition-all">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 sm:h-20 flex items-center justify-between">
 
-                    <Link href="/" className="select-none">
+                    <div className="select-none">
                         <Logo className="h-10" />
-                    </Link>
+                    </div>
 
                     <div className="flex items-center gap-6">
                         {/* Nav Links */}
