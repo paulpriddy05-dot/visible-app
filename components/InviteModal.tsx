@@ -59,7 +59,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
     );
 
     // Final Calculation: If I created it, I am Owner. Otherwise, use list. Default to viewer.
-    // We also normalize 'edit'/'editor' just in case.
     let effectiveRole = myMemberRow?.role || 'viewer';
     if (effectiveRole === 'edit') effectiveRole = 'editor';
     if (effectiveRole === 'view') effectiveRole = 'viewer';
@@ -224,7 +223,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Who has access</h4>
                         <div className="space-y-3">
 
-                            {/* 🟢 "You" Section - Uses TRUE OWNER Check */}
+                            {/* 🟢 "You" Section */}
                             {currentUser && (
                                 <div className="flex items-center justify-between group">
                                     <div className="flex items-center gap-3">
@@ -237,7 +236,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                         </div>
                                     </div>
                                     <span className="text-xs text-slate-400 font-medium italic pr-2 capitalize">
-                                        {/* Display logic: If true owner, force "Owner". Else show role. */}
                                         {currentUserRole === 'owner' ? 'Owner' : (currentUserRole === 'editor' ? 'Editor' : 'Viewer')}
                                     </span>
                                 </div>
@@ -274,8 +272,8 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                             </div>
 
                                             <div className="flex items-center gap-2">
-                                                {/* Only True Owner (or Owner role) can edit others */}
-                                                {currentUserRole === 'owner' ? (
+                                                {/* 🟢 CHANGE: Allow Owners OR Editors to manage permissions */}
+                                                {['owner', 'editor', 'edit'].includes(currentUserRole) ? (
                                                     <>
                                                         <select
                                                             value={['editor', 'edit'].includes(member.role) ? 'editor' : 'viewer'}
