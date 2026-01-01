@@ -14,12 +14,13 @@ export default function WhyPage() {
             {/* 1. NAVIGATION */}
             <nav className="flex items-center justify-between px-6 py-6 max-w-5xl mx-auto">
 
-                {/* 🟢 UPDATED: Using the official Logo component now */}
+                {/* Using the official Logo component */}
                 <Logo />
 
                 <div className="flex gap-4 text-sm font-medium">
                     <Link href="/login" className="text-slate-500 hover:text-slate-900 dark:text-zinc-400 dark:hover:text-zinc-100 transition-colors">Log In</Link>
-                    <Link href="/signup" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">Get Started &rarr;</Link>
+                    {/* 🟢 UPDATED: Changed href from "/signup" to "/login" */}
+                    <Link href="/login" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300">Get Started &rarr;</Link>
                 </div>
             </nav>
 
