@@ -34,7 +34,7 @@ export default function WhyPage() {
                     </h1>
                     {/* 🟢 UPDATED COPY: Focuses on Workflow, not just search */}
                     <p className="text-xl md:text-2xl text-slate-600 dark:text-zinc-400 leading-relaxed max-w-2xl">
-                        Stop searching. Start working. Visible turns scattered links into a focused workflow, putting the exact files you need for <em>This Week</em> right at your fingertips.
+                        Stop searching. Start working. Visible turns scattered links into a focused workflow, putting the exact files you need right at your fingertips.
                     </p>
                 </section>
 
