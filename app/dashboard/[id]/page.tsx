@@ -630,10 +630,13 @@ export default function DynamicDashboard() {
       if (cardToLoad.settings) {
         cardToLoad.settings = { ...cardToLoad.settings, viewMode: null };
       }
-    } else {
-      if (cardToLoad.settings?.connectedSheet && !cardToLoad.data) {
-        loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad);
-      }
+    }
+
+    // 🟢 UPDATED: Always fetch fresh data if a sheet is connected.
+    // Previously, we only fetched if (!cardToLoad.data).
+    // Now we fetch regardless, ensuring you get the full 196+ rows every time.
+    if (cardToLoad.settings?.connectedSheet) {
+      loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad);
     }
 
     setActiveCard(cardToLoad);
