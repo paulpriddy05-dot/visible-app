@@ -91,52 +91,67 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
 
   if (variant === 'mission') {
     return (
-      <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-5 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group bg-cyan-600`}>
-        <div className="bg-white/20 p-3 rounded-full mb-3 backdrop-blur-sm"><i className={`fas ${displayIcon} text-2xl`}></i></div>
-        <h4 className="font-bold text-lg tracking-wide">{card.title || "Untitled"}</h4>
-        <div className="mt-3 text-[10px] uppercase tracking-widest bg-black/20 px-2 py-1 rounded">View Dashboard</div>
-      </div>
-    );
-  }
-
-  if (variant === 'horizontal') {
-    return (
-      <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-md rounded-xl p-4 text-white flex flex-row items-center text-left h-24 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
-        <div className="bg-white/20 h-12 w-12 rounded-full flex items-center justify-center mr-4 shrink-0 backdrop-blur-sm"><i className={`fas ${displayIcon} text-xl`}></i></div>
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-lg leading-tight truncate">{card.title || "Untitled"}</h4>
-          <div className="text-xs font-medium opacity-80 mt-1 truncate">{card.date_label || "No Date"}</div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} onClick={() => onClick(card)} className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-6 text-white flex flex-col items-center justify-center text-center h-40 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}>
-      {showMiniChart ? (
-        <div className="w-full h-full absolute inset-0 p-4 pt-10 opacity-90 pointer-events-none">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={miniChartData}>
-              <Area type="monotone" dataKey={card.settings.yAxisCol} stroke="#fff" fill="rgba(255,255,255,0.3)" strokeWidth={2} isAnimationActive={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80 truncate px-4">{card.title || "Untitled"}</div>
-        </div>
-      ) : (
-        <>
-          <div className="bg-white/16 p-1 rounded-full mb-4 backdrop-blur-sm"><i className={`fas ${displayIcon} text-3xl`}></i></div>
-          <h4 className="font-bold text-xl tracking-wide line-clamp-2">{card.title || "Untitled"}</h4>
-          <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1">
-            {card.settings?.viewMode === 'chart' ? (
-              <><i className="fas fa-chart-pie"></i> Data View</>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={() => onClick(card)}
+        /* 🟢 UPDATED: Changed p-6 to p-4, and h-40 to h-44 for more space */
+        className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-4 text-white flex flex-col items-center justify-center text-center h-44 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}
+      >
+        {showMiniChart ? (
+          <div className="w-full h-full absolute inset-0 p-4 pt-10 opacity-90 pointer-events-none">
+            {/* 🟢 RENDER LOGIC FOR DASHBOARD TILES */}
+            {card.settings.chartType === 'metric' ? (
+              <div className="flex flex-col items-center justify-center h-full pb-4">
+                <div className="text-5xl font-bold tracking-tighter">{metricValue?.toLocaleString()}</div>
+                <div className="text-xs uppercase tracking-widest opacity-80 mt-1">{card.settings.yAxisCol}</div>
+              </div>
+            ) : card.settings.chartType === 'progress' ? (
+              <div className="flex flex-col justify-center h-full space-y-2 pt-2">
+                {card.data.slice(0, 3).map((row: any, i: number) => {
+                  const val = cleanNumber(row[card.settings.yAxisCol]);
+                  const max = Math.max(...card.data.map((r: any) => cleanNumber(r[card.settings.yAxisCol])));
+                  const pct = max > 0 ? (val / max) * 100 : 0;
+                  return (
+                    <div key={i} className="w-full">
+                      <div className="flex justify-between text-[10px] font-bold opacity-90 mb-0.5">
+                        <span>{row[card.settings.xAxisCol]}</span>
+                        <span>{val}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
+                        <div className="h-full bg-white/90 rounded-full" style={{ width: `${pct}%` }}></div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             ) : (
-              <><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc: any, block: any) => acc + (block.items?.length || 0), 0) : 0} Files</>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={miniChartData}>
+                  <Area type="monotone" dataKey={card.settings.yAxisCol} stroke="#fff" fill="rgba(255,255,255,0.3)" strokeWidth={2} isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
             )}
+            {/* Only show title if it's NOT a metric (Metric has its own label) */}
+            {card.settings.chartType !== 'metric' && <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80 truncate px-4">{card.title || "Untitled"}</div>}
           </div>
-        </>
-      )}
-    </div>
-  );
+        ) : (
+          <>
+            <div className="bg-white/16 p-1 rounded-full mb-3 backdrop-blur-sm"><i className={`fas ${displayIcon} text-2xl md:text-3xl`}></i></div>
+            <h4 className="font-bold text-lg md:text-xl tracking-wide line-clamp-2">{card.title || "Untitled"}</h4>
+            <div className="mt-3 text-[10px] uppercase tracking-widest bg-white/20 px-2 py-1 rounded flex items-center gap-1">
+              {card.settings?.viewMode === 'chart' ? (
+                <><i className="fas fa-chart-pie"></i> Data View</>
+              ) : (
+                <><i className="fas fa-paperclip"></i> {card.resources ? card.resources.reduce((acc: any, block: any) => acc + (block.items?.length || 0), 0) : 0} Files</>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    );
 }
 
 // --- MAIN COMPONENT ---
@@ -863,7 +878,10 @@ export default function DynamicDashboard() {
       {/* --- MODAL --- */}
       {activeCard && (
         <div onClick={() => setActiveModal(null)} className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-6 bg-slate-900/70 backdrop-blur-sm">
-          <div onClick={(e) => e.stopPropagation()} className={`bg-white w-full ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "max-w-6xl h-[85vh]" : "max-w-2xl"} rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300`}>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={`bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300 ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "sm:max-w-6xl" : "sm:max-w-2xl"}`}
+          >
             {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
@@ -895,19 +913,19 @@ export default function DynamicDashboard() {
                   <button
                     onClick={() => {
                       if (activeCard.settings?.viewMode) {
-                        // CASE 1: Turning it OFF (Back to Files)
+                        // Turning OFF (Back to Files)
                         const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: null } };
                         setActiveCard(updated);
                       }
                       else {
-                        // CASE 2: Turning it ON (Visualize)
-                        // 🟢 THE FIX: Check if a chartType is saved. If yes, go to 'chart'. If no, default to 'card'.
+                        // Turning ON (Visualize)
+                        // 🟢 FIX: Check if we have a saved chartType. If yes, go to 'chart'. If no, default to 'card'.
                         const targetMode = activeCard.settings?.chartType ? 'chart' : 'card';
 
                         const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: targetMode } };
                         setActiveCard(updated);
 
-                        // Force load data if missing (prevents blank screen)
+                        // Force load data if missing
                         if (attachedSheetUrl && !activeCard.data) {
                           loadSheetData(attachedSheetUrl, updated);
                         }
