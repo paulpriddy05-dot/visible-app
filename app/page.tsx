@@ -51,9 +51,7 @@ export default function LandingPage() {
             {/* --- HERO SECTION --- */}
             <main className="flex-1 flex flex-col items-center pt-28 sm:pt-40 pb-12 sm:pb-20 px-4 sm:px-6 text-center max-w-7xl mx-auto w-full">
 
-                <div className="inline-block mb-6 px-4 py-1.5 rounded-full bg-indigo-50 text-indigo-700 font-bold text-[10px] sm:text-xs uppercase tracking-widest border border-indigo-100">
-                    Beta App in Testing
-                </div>
+    
 
                 <h1 className="text-4xl sm:text-5xl md:text-7xl font-extrabold text-slate-900 mb-6 sm:mb-8 tracking-tight leading-tight max-w-5xl">
                     The home screen your <br className="hidden md:block" />

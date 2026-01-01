@@ -957,7 +957,9 @@ export default function DynamicDashboard() {
                 ) : isMapping ? (
                   <div className="flex h-full">
                     {/* LEFT SIDEBAR: CONTROLS */}
-                    <div className="w-1/3 bg-white border-r border-slate-200 flex flex-col">
+                      {/* LEFT SIDEBAR: CONTROLS */}
+                      {/* 🟢 ADDED: text-slate-900 to force dark text on the white background */}
+                      <div className="w-1/3 bg-white border-r border-slate-200 flex flex-col text-slate-900">
                       <div className="p-6 border-b border-slate-100">
                         <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                           <i className="fas fa-magic text-purple-500"></i> Configure View
@@ -1024,20 +1026,39 @@ export default function DynamicDashboard() {
                                 {activeCard.columns?.map((c: string) => <option key={c} value={c}>{c}</option>)}
                               </select>
                             </div>
-                            <div>
-                              <label className="block text-xs font-bold text-slate-700 mb-1">Chart Type</label>
-                              <select
-                                value={activeCard.settings?.chartType || 'bar'}
-                                onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, chartType: e.target.value } })}
-                                className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none"
-                              >
-                                <option value="bar">Bar Chart</option>
-                                <option value="line">Line Chart</option>
-                                <option value="area">Area Chart</option>
-                                <option value="pie">Pie Chart</option>
-                                <option value="donut">Donut Chart</option>
-                              </select>
-                            </div>
+                              {/* 🟢 UPDATED: Chart Type Selection */}
+                              <div>
+                                <label className="block text-xs font-bold text-slate-700 mb-1">Chart Type</label>
+                                <select
+                                  value={activeCard.settings?.chartType || 'bar'}
+                                  onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, chartType: e.target.value } })}
+                                  className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white outline-none"
+                                >
+                                  <option value="bar">Bar Chart</option>
+                                  <option value="line">Line Chart</option>
+                                  <option value="area">Area Chart</option>
+                                  <option value="pie">Pie Chart</option>
+                                  <option value="donut">Donut Chart</option>
+                                  {/* 👇 NEW OPTIONS ADDED */}
+                                  <option value="metric">Big Number (KPI)</option>
+                                  <option value="progress">Progress Bars</option>
+                                </select>
+                              </div>
+
+                              {/* 🟢 LOGIC UPDATE: Hide X-Axis selector if "Big Number" is chosen */}
+                              {activeCard.settings?.chartType !== 'metric' && (
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-700 mb-1">X-Axis (Label)</label>
+                                  <select
+                                    value={activeCard.settings?.xAxisCol || ''}
+                                    onChange={(e) => setActiveCard({ ...activeCard, settings: { ...activeCard.settings, xAxisCol: e.target.value } })}
+                                    className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-slate-50 outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="">-- Select Column --</option>
+                                    {activeCard.columns?.map((c: string) => <option key={c} value={c}>{c}</option>)}
+                                  </select>
+                                </div>
+                              )}
 
                             {/* 🟢 NEW TOGGLE: CONTROL DASHBOARD VISIBILITY */}
                             <div className="pt-4 border-t border-slate-100">
