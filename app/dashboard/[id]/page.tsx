@@ -719,7 +719,8 @@ export default function DynamicDashboard() {
                   className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 border border-blue-500 hover:bg-blue-500 text-white transition-all shadow-sm hover:shadow-blue-500/20"
                 >
                   <i className="fas fa-plus"></i>
-                  <span>New Card</span>
+                  {/* 🟢 FIXED: Hidden on mobile (default), inline on desktop (md) */}
+                  <span className="hidden md:inline">New Card</span>
                 </button>
               )}
             </div>
@@ -730,7 +731,8 @@ export default function DynamicDashboard() {
                 className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md bg-purple-600 border border-purple-500 hover:bg-purple-500 text-white transition-colors shadow-sm"
               >
                 <i className="fas fa-user-plus"></i>
-                <span>Invite</span>
+                {/* 🟢 FIXED: Hidden on mobile (default), inline on desktop (md) */}
+                <span className="hidden md:inline">Invite</span>
               </button>
 
               <button
@@ -865,8 +867,8 @@ export default function DynamicDashboard() {
 
       {/* --- MODAL --- */}
       {activeCard && (
-        <div onClick={() => setActiveModal(null)} className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-6 bg-slate-900/70 backdrop-blur-sm">
-          <div onClick={(e) => e.stopPropagation()} className={`bg-white w-full ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "max-w-6xl h-[85vh]" : "max-w-2xl"} rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300`}>
+        <div onClick={() => setActiveModal(null)} className="fixed inset-0 z-50 flex items-center justify-center sm:px-4 sm:py-6 bg-slate-900/70 backdrop-blur-sm">
+          <div onClick={(e) => e.stopPropagation()} className={`bg-white w-full h-full sm:h-auto sm:rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300 ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "sm:max-w-6xl sm:h-[85vh]" : "sm:max-w-2xl"}`}>
             {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
@@ -893,23 +895,24 @@ export default function DynamicDashboard() {
                 {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                {/* 🟢 TOGGLE FILES / VISUALIZATION - FIXED TO REMEMBER SAVED CHART TYPE */}
+                {/* 🟢 TOGGLE FILES / VISUALIZATION - SMART RESTORE */}
                 {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                   <button
                     onClick={() => {
                       if (activeCard.settings?.viewMode) {
-                        // Toggle OFF (Back to Files)
+                        // CASE 1: Turning it OFF (Back to Files)
                         const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: null } };
                         setActiveCard(updated);
                       }
                       else {
-                        // Toggle ON (Visualize)
-                        // 🟢 FIX: Check if we have a saved chartType. If yes, go to 'chart' mode. If no, default to 'card'.
+                        // CASE 2: Turning it ON (Visualize)
+                        // 🟢 THE FIX: Check if a chartType is saved. If yes, go to 'chart'. If no, default to 'card'.
                         const targetMode = activeCard.settings?.chartType ? 'chart' : 'card';
 
                         const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: targetMode } };
                         setActiveCard(updated);
 
+                        // Force load data if missing
                         if (attachedSheetUrl && !activeCard.data) {
                           loadSheetData(attachedSheetUrl, updated);
                         }
@@ -1161,6 +1164,7 @@ export default function DynamicDashboard() {
                           {/* 🟢 CHART RENDER LOGIC */}
                           {activeCard.settings?.viewMode === 'chart' ? (
                             <div className="w-full h-64 md:h-96 bg-white p-6 rounded-xl border border-slate-200 shadow-xl flex flex-col">
+                              {/* 🟢 MOBILE FIX: Shorter height on mobile... */}
                               <h3 className="text-lg font-bold text-slate-800 mb-4 text-center">{activeCard.title}</h3>
                               <div className="flex-1 min-h-0 flex flex-col justify-center">
 
