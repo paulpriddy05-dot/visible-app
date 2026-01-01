@@ -357,13 +357,10 @@ export default function DynamicDashboard() {
     const updatedModalCard = { ...activeCard, settings: newSettings };
     setActiveCard(updatedModalCard);
 
-    // 🟢 UPDATED: Removed the 20-row limit. Now saves the full dataset.
+    // 🟢 CRITICAL: Ensure we save the full card data, not just a slice
     const cardForList = { ...updatedModalCard };
 
-    // OPTIONAL: Only limit if it's massive (e.g. > 2000 rows) to prevent lag
-    // if (cardForList.data && cardForList.data.length > 2000) { 
-    //   cardForList.data = cardForList.data.slice(0, 2000); 
-    // }
+    // NOTE: If you previously had code here slicing to 20 rows, ensure it is deleted/commented out.
 
     if (activeCard.type === 'generic-sheet') {
       setGenericWidgets(prev => prev.map(w => w.id === activeCard.id ? cardForList : w));
@@ -893,32 +890,36 @@ export default function DynamicDashboard() {
                 {showDocPreview && <div className="text-xs opacity-75">Document Preview</div>}
               </div>
               <div className="flex items-center gap-3">
-                {/* 🟢 TOGGLE FILES / VISUALIZATION - FIXED RACE CONDITION */}
+                {/* 🟢 TOGGLE FILES / VISUALIZATION - SMART RESTORE */}
                 {(activeCard.type === 'generic-sheet' || attachedSheetUrl || activeCard.data) && !isMapping && (
                   <button
                     onClick={() => {
                       if (activeCard.settings?.viewMode) {
+                        // CASE 1: Turning it OFF (Back to Files)
                         const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: null } };
                         setActiveCard(updated);
                       }
                       else {
-                        // 🟢 FIX: Create updated state AND pass it to the loader
-                        const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: 'card' } };
+                        // CASE 2: Turning it ON (Visualize)
+                        // 🟢 THE FIX: Check if a chartType is saved. If yes, go to 'chart'. If no, default to 'card'.
+                        const targetMode = activeCard.settings?.chartType ? 'chart' : 'card';
+
+                        const updated = { ...activeCard, settings: { ...activeCard.settings, viewMode: targetMode } };
                         setActiveCard(updated);
 
+                        // Force load data if missing (prevents blank screen)
                         if (attachedSheetUrl && !activeCard.data) {
-                          // Pass 'updated' to avoid race condition where loading data resets the viewMode
                           loadSheetData(attachedSheetUrl, updated);
                         }
                       }
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode
-                      ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
-                      : "bg-purple-600 text-white border-purple-500 hover:bg-purple-50 animate-pulse"
+                    className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-bold transition-all flex items-center gap-2 shadow-sm border ${activeCard.settings?.viewMode
+                        ? "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                        : "bg-purple-600 text-white border-purple-500 hover:bg-purple-50 animate-pulse"
                       }`}
                   >
                     <i className={`fas ${activeCard.settings?.viewMode ? 'fa-folder-open' : 'fa-chart-pie'}`}></i>
-                    {activeCard.settings?.viewMode ? "Back to Files" : "Visualize Data"}
+                    <span className="hidden sm:inline">{activeCard.settings?.viewMode ? "Back to Files" : "Visualize Data"}</span>
                   </button>
                 )}
 
