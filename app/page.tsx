@@ -165,15 +165,15 @@ export default function LandingPage() {
                         <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col">
                             <div className="mb-4">
                                 <span className="text-slate-500 font-medium">Team</span>
-                                <div className="text-4xl font-bold text-slate-900 mt-2">$5</div>
-                                <div className="text-slate-400 text-sm mt-1">per user / month</div>
+                                <div className="text-4xl font-bold text-slate-900 mt-2">$5 / $50</div>
+                                <div className="text-slate-400 text-sm mt-1">per user / month / Annually</div>
                             </div>
                             <ul className="space-y-4 mb-8 flex-1 text-left">
                                 <PricingCheck text="Everything in Pro" />
                                 <PricingCheck text="Unlimited team members" />          
                             </ul>
                             <Link href="/login" className="w-full block py-3 px-4 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
-                                Contact Sales
+                                Get Team
                             </Link>
                         </div>
 
