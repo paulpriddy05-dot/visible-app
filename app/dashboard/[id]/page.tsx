@@ -557,26 +557,59 @@ export default function DynamicDashboard() {
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
     setActiveDragItem(null);
+
+    // If dropped on nothing, cancel
     if (!over) return;
-    const activeId = active.id; const overId = over.id;
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    // 1. Find the item being dragged
     const allItems = [...manualCards, ...genericWidgets];
     const activeItem = allItems.find(i => i.id === activeId);
+    if (!activeItem) return;
 
-    if (overId === "Weekly Schedule" || overId === scheduleTitle) { if (activeItem) updateCardCategory(activeItem, "Weekly Schedule"); return; }
-    if (overId === "Missions" || overId === missionsTitle) { if (activeItem) updateCardCategory(activeItem, "Missions"); return; }
-    if (sections.includes(overId)) { if (activeItem) updateCardCategory(activeItem, overId); return; }
+    // 2. Find the target (Card being dropped ONTO)
+    const overItem = allItems.find(i => i.id === overId);
 
-    if (activeId !== overId) {
-      setManualCards((items) => { const oldIndex = items.findIndex((item) => item.id === activeId); const newIndex = items.findIndex((item) => item.id === overId); return arrayMove(items, oldIndex, newIndex); });
-      const overItem = allItems.find(i => i.id === overId) || scheduleCards.find(c => c.id === overId) || missionCard?.id === overId;
-      if (activeItem && overItem) {
-        let targetCategory = overItem.settings?.category || overItem.category;
-        if (!targetCategory && overItem.source === 'google-sheet') targetCategory = "Weekly Schedule";
-        if (overId === 'missions-status') targetCategory = "Missions";
-        if (!targetCategory) targetCategory = sections[0];
-        const currentCategory = activeItem.settings?.category || sections[0];
-        if (currentCategory !== targetCategory) { updateCardCategory(activeItem, targetCategory); }
+    // 3. LOGIC: Moving vs Reordering
+    if (activeItem && overItem) {
+
+      // Check Categories
+      const currentCategory = activeItem.settings?.category || "Planning & Resources";
+      const targetCategory = overItem.settings?.category || "Planning & Resources";
+
+      // CASE A: Moving to a DIFFERENT Section
+      if (currentCategory !== targetCategory) {
+        // Update the category immediately. 
+        // We DO NOT call 'arrayMove' here, because changing the category 
+        // will automatically move it to the new list visually.
+        updateCardCategory(activeItem, targetCategory);
       }
+      // CASE B: Reordering within the SAME Section
+      else if (activeId !== overId) {
+        // Only reorder the specific list (Manual vs Widget) to prevent errors
+        if (activeItem.source === 'manual') {
+          setManualCards((items) => {
+            const oldIndex = items.findIndex((item) => item.id === activeId);
+            const newIndex = items.findIndex((item) => item.id === overId);
+            return arrayMove(items, oldIndex, newIndex);
+          });
+        } else if (activeItem.type === 'generic-sheet') {
+          setGenericWidgets((items) => {
+            const oldIndex = items.findIndex((item) => item.id === activeId);
+            const newIndex = items.findIndex((item) => item.id === overId);
+            return arrayMove(items, oldIndex, newIndex);
+          });
+        }
+      }
+    }
+
+    // 4. Handle Special Targets (Optional: if you drop directly on a Section Header)
+    // Note: This only works if your headers are marked as droppable (advanced), 
+    // but this safety check keeps the app from crashing if 'overItem' is missing.
+    else if (sections.includes(overId) || overId === "Weekly Schedule" || overId === "Missions") {
+      updateCardCategory(activeItem, overId);
     }
   };
 
