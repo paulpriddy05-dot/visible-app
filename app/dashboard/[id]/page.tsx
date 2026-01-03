@@ -1701,6 +1701,16 @@ export default function DynamicDashboard() {
                     </div>
                   </div>
                 )
+              ) : activeCard.type === 'generic-sheet' ? (
+                /* 🟢 RESTORED: Generic Sheet / Document Preview (Fixed Height) */
+                <div className="w-full h-[75vh] bg-slate-50 overflow-hidden rounded-b-xl">
+                  <iframe
+                    src={getEmbedUrl(activeCard.sheet_url)}
+                    className="w-full h-full border-none"
+                    allow="autoplay"
+                    title="Document Preview"
+                  />
+                </div>
               ) : activeCard.id === "missions-status" ? (
                 <div className="p-0 bg-slate-50 min-h-full">
                   {/* ... Missions Content ... */}
