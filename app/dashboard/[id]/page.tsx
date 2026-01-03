@@ -23,15 +23,7 @@ import {
   // ... keep existing ...
   useDroppable // 🟢 ADD THIS
 } from '@dnd-kit/core';
-// 🟢 NEW COMPONENT: Allows dropping into empty spaces
-function DroppableSection({ id, children, className }: any) {
-  const { setNodeRef } = useDroppable({ id });
-  return (
-    <div ref={setNodeRef} className={className}>
-      {children}
-    </div>
-  );
-}
+
 
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6'];
 
@@ -249,7 +241,30 @@ export default function DynamicDashboard() {
   const newItemUrlRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [googleToken, setGoogleToken] = useState<string>("");
+  // 🟢 MANUAL AUTH: Forces the popup for new users who haven't connected yet
+  const handleManualAuth = () => {
+    // @ts-ignore
+    if (typeof google !== 'undefined' && google.accounts) {
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive.file',
+        callback: (resp: any) => {
+          if (resp.access_token) {
+            // Save token
+            const expiresIn = (resp.expires_in || 3599) * 1000;
+            localStorage.setItem("google_access_token", resp.access_token);
+            localStorage.setItem("google_token_expiry", (Date.now() + expiresIn - 60000).toString());
+            setGoogleToken(resp.access_token);
 
+            // Reload the page to refresh all charts with the new key
+            window.location.reload();
+          }
+        },
+      });
+      // 'consent' forces the popup to appear
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+  };
   // 🟢 SMART TOKEN HANDLER: Gets a valid token, refreshing silently if needed
   const getValidToken = async () => {
     const currentToken = localStorage.getItem("google_access_token");
@@ -917,7 +932,16 @@ export default function DynamicDashboard() {
                 <i className="fas fa-user-plus"></i>
                 <span>Invite</span>
               </button>
-
+              {/* 🟢 NAVBAR CONNECT BUTTON (Visible if no token found) */}
+              {!googleToken && !localStorage.getItem("google_access_token") && (
+                <button
+                  onClick={handleManualAuth}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-md bg-white/10 border border-white/20 hover:bg-white/20 text-white transition-colors"
+                >
+                  <i className="fab fa-google-drive"></i>
+                  <span>Connect Data</span>
+                </button>
+              )}
               <button
                 onClick={() => setShowTutorial(true)}
                 className="h-8 w-8 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors flex items-center justify-center border border-slate-700"
@@ -1146,11 +1170,25 @@ export default function DynamicDashboard() {
 
               {/* VISUALIZATION MODE */}
               {activeCard.settings?.viewMode ? (
-                /* 🟢 FIX: Show Loading if data is missing but viewMode is ON */
+                /* 🟢 UPDATED LOADING STATE: Includes "Connect" button for new users */
                 (!activeCard.data && activeCard.type !== 'generic-sheet') ? (
-                  <div className="flex h-full items-center justify-center text-slate-400 gap-3">
-                    <i className="fas fa-circle-notch fa-spin text-2xl text-blue-500"></i>
-                    <span className="font-medium">Loading Spreadsheet Data...</span>
+                  <div className="flex flex-col h-full items-center justify-center text-slate-400 gap-6">
+                    <div className="flex items-center gap-3">
+                      <i className="fas fa-circle-notch fa-spin text-2xl text-blue-500"></i>
+                      <span className="font-medium">Loading Data...</span>
+                    </div>
+
+                    {/* The Button for Viewers */}
+                    <div className="text-center space-y-2">
+                      <p className="text-xs text-slate-400">Stuck here? You may need to connect your account.</p>
+                      <button
+                        onClick={handleManualAuth}
+                        className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-all"
+                      >
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" className="w-4 h-4" alt="Drive" />
+                        Connect Google Drive
+                      </button>
+                    </div>
                   </div>
                 ) : isMapping ? (
                   <div className="flex h-full">
