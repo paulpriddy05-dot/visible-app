@@ -1293,68 +1293,48 @@ export default function DynamicDashboard() {
                       <div className="flex-1 p-10 flex items-center justify-center overflow-y-auto">
 
                         {/* 🟢 CHART RENDER LOGIC */}
-                        {activeCard.settings?.viewMode === 'chart' ? (
-                          <div className="w-full h-64 md:h-96 bg-white p-6 rounded-xl border border-slate-200 shadow-xl flex flex-col">
-                            <h3 className="text-lg font-bold text-slate-800 mb-4 text-center">{activeCard.title}</h3>
-                            <div className="flex-1 min-h-0 flex flex-col justify-center">
+                          ) : activeCard.settings?.viewMode === 'chart' ? (
+                          /* 🟢 MAIN CHART RENDER (Fixed Height & Logic) */
+                          <div className="p-4 md:p-8 h-full flex flex-col">
+                            {/* Added min-h-[500px] to prevent chart collapse */}
+                            <div className="flex-1 w-full min-h-[500px] flex flex-col justify-center bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative">
 
-                              {/* 1. BIG NUMBER (METRIC) VIEW */}
+                              {/* 1. METRIC (BIG NUMBER) */}
                               {activeCard.settings?.chartType === 'metric' ? (
                                 <div className="flex flex-col items-center gap-4">
-                                  <div className="text-6xl md:text-8xl font-bold text-slate-800 tracking-tighter">
-                                    {/* Sums up the selected column */}
+                                  <div className="text-7xl md:text-9xl font-bold text-slate-800 tracking-tighter">
                                     {activeCard.data.reduce((sum: number, row: any) => sum + cleanNumber(row[activeCard.settings.yAxisCol]), 0).toLocaleString()}
                                   </div>
-                                  <div className="text-xs font-bold uppercase tracking-widest text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
-                                    {activeCard.settings.yAxisCol}
-                                  </div>
+                                  <div className="text-sm font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{activeCard.settings.yAxisCol}</div>
                                 </div>
                               ) : activeCard.settings?.chartType === 'progress' ? (
 
-                                /* 2. PROGRESS BARS VIEW */
-                                <div className="space-y-4 w-full px-4 overflow-y-auto max-h-full custom-scroll">
-                                  {activeCard.data.map((row: any, idx: number) => {
-                                    const val = cleanNumber(row[activeCard.settings.yAxisCol]);
-                                    // Find the biggest number in the set to calculate percentage
-                                    const maxVal = Math.max(...activeCard.data.map((r: any) => cleanNumber(r[activeCard.settings.yAxisCol])));
-                                    const percent = maxVal > 0 ? (val / maxVal) * 100 : 0;
-
-                                    return (
-                                      <div key={idx} className="w-full">
-                                        <div className="flex justify-between text-xs font-bold text-slate-600 mb-1">
-                                          <span>{row[activeCard.settings.xAxisCol]}</span>
-                                          <span>{val.toLocaleString()}</span>
+                                /* 2. PROGRESS BARS */
+                                <div className="w-full h-full overflow-y-auto custom-scroll p-2">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 w-full max-w-5xl mx-auto">
+                                    {activeCard.data.map((row: any, idx: number) => {
+                                      const val = cleanNumber(row[activeCard.settings.yAxisCol]);
+                                      const maxVal = Math.max(...activeCard.data.map((r: any) => cleanNumber(r[activeCard.settings.yAxisCol])));
+                                      const percent = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                                      return (
+                                        <div key={idx} className="w-full">
+                                          <div className="flex justify-between text-sm font-bold text-slate-600 mb-2">
+                                            <span className="truncate pr-2">{row[activeCard.settings.xAxisCol]}</span>
+                                            <span>{val.toLocaleString()}</span>
+                                          </div>
+                                          <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full shadow-sm" style={{ width: `${percent}%`, backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}></div>
+                                          </div>
                                         </div>
-                                        <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                          <div
-                                            className="h-full rounded-full shadow-sm transition-all duration-500"
-                                            style={{ width: `${percent}%`, backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
-                                          ></div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               ) : (
 
-                                /* 3. STANDARD CHARTS (Your existing Recharts code) */
+                                /* 3. STANDARD CHARTS (Bar, Line, etc.) */
                                 <ResponsiveContainer width="100%" height="100%">
-                                  {activeCard.settings?.chartType === 'pie' || activeCard.settings?.chartType === 'donut' ? (
-                                    <PieChart>
-                                      <Pie
-                                        data={activeCard.data.map((d: any) => ({ name: d[activeCard.settings.xAxisCol], value: cleanNumber(d[activeCard.settings.yAxisCol]) }))}
-                                        cx="50%" cy="50%"
-                                        innerRadius={activeCard.settings?.chartType === 'donut' ? 60 : 0}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                      >
-                                        {activeCard.data.map((entry: any, index: number) => (<Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />))}
-                                      </Pie>
-                                      <Tooltip formatter={(value: number) => value.toLocaleString()} />
-                                      <Legend verticalAlign="bottom" height={36} />
-                                    </PieChart>
-                                  ) : activeCard.settings?.chartType === 'line' ? (
+                                  {activeCard.settings?.chartType === 'line' ? (
                                     <LineChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
                                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                                       <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
@@ -1370,7 +1350,16 @@ export default function DynamicDashboard() {
                                       <Tooltip />
                                       <Area type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" fill="#ddd6fe" />
                                     </AreaChart>
+                                  ) : activeCard.settings?.chartType === 'pie' || activeCard.settings?.chartType === 'donut' ? (
+                                    <PieChart>
+                                      <Pie data={activeCard.data.map((d: any) => ({ name: d[activeCard.settings.xAxisCol], value: cleanNumber(d[activeCard.settings.yAxisCol]) }))} cx="50%" cy="50%" innerRadius={activeCard.settings?.chartType === 'donut' ? 60 : 0} outerRadius={120} paddingAngle={5} dataKey="value">
+                                        {activeCard.data.map((entry: any, index: number) => (<Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />))}
+                                      </Pie>
+                                      <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                                      <Legend verticalAlign="bottom" />
+                                    </PieChart>
                                   ) : (
+                                    /* 🟢 DEFAULT: BAR CHART (Explicitly handled) */
                                     <BarChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
                                       <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                                       <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
