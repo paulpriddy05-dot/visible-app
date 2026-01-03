@@ -1774,7 +1774,16 @@ export default function DynamicDashboard() {
                   </div>
                 )
               )}
-              {showDocPreview && <iframe src={showDocPreview} className="w-full h-[75vh] border-none bg-white flex-1" title="Doc Preview"></iframe>}
+              {/* 🟢 FIX MANUAL CARD FILE PREVIEW: h-[75vh] forces height */}
+              {showDocPreview && (
+                <div className="w-full h-[75vh] bg-slate-50 rounded-b-xl overflow-hidden">
+                  <iframe
+                    src={showDocPreview}
+                    className="w-full h-full border-none bg-white"
+                    title="Doc Preview"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
