@@ -871,37 +871,50 @@ export default function DynamicDashboard() {
       window.open(item.url, '_blank');
     }
   };
-  // 🟢 AUTHORIZE ACCESS: Lets a viewer "bless" a file so they can see it
+  // 🟢 AUTHORIZE ACCESS: 1. Get Safe Token -> 2. Open Picker
   const handleAuthorizeAccess = () => {
-    openPicker({
-      clientId: GOOGLE_CLIENT_ID,
-      developerKey: GOOGLE_API_KEY,
-      viewId: "DOCS",
+    // @ts-ignore
+    if (typeof google !== 'undefined' && google.accounts) {
 
-      // 🟢 CRITICAL ADDITION: Forces the picker to use the SAFE scope
-      // This ensures we don't trigger the "Unverified App" warning again.
-      customScopes: ['https://www.googleapis.com/auth/drive.file'],
+      // Step 1: Initialize the Token Client with the SAFE scope
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: 'https://www.googleapis.com/auth/drive.file', // <--- The Critical Safe Scope
+        callback: (tokenResponse: any) => {
 
-      showUploadView: false,
-      showUploadFolders: true,
-      supportDrives: true,
-      multiselect: false,
-      callbackFunction: (data: any) => {
-        if (data.action === "picked") {
-          if (data.oauthToken) {
-            setGoogleToken(data.oauthToken);
-            localStorage.setItem("google_access_token", data.oauthToken);
-            // Set expiry for 1 hour
-            const expiryTime = Date.now() + (3599 * 1000) - 60000;
-            localStorage.setItem("google_token_expiry", expiryTime.toString());
+          if (tokenResponse.access_token) {
+            // Save the fresh token
+            const expiresIn = (tokenResponse.expires_in || 3599) * 1000;
+            localStorage.setItem("google_access_token", tokenResponse.access_token);
+            localStorage.setItem("google_token_expiry", (Date.now() + expiresIn - 60000).toString());
+            setGoogleToken(tokenResponse.access_token);
+
+            // Step 2: Open the Picker using this safe token
+            openPicker({
+              clientId: GOOGLE_CLIENT_ID,
+              developerKey: GOOGLE_API_KEY,
+              viewId: "DOCS",
+              token: tokenResponse.access_token, // <--- Pass the token directly
+              showUploadView: false,
+              showUploadFolders: true,
+              supportDrives: true,
+              multiselect: false,
+              callbackFunction: (data: any) => {
+                if (data.action === "picked") {
+                  // Reload the card data now that we have permission
+                  if (activeCard.settings?.connectedSheet) {
+                    loadSheetData(activeCard.settings.connectedSheet, activeCard);
+                  }
+                }
+              }
+            });
           }
+        },
+      });
 
-          if (activeCard.settings?.connectedSheet) {
-            loadSheetData(activeCard.settings.connectedSheet, activeCard);
-          }
-        }
-      }
-    });
+      // Trigger the popup
+      tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
   };
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
 
