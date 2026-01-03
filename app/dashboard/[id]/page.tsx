@@ -227,6 +227,12 @@ export default function DynamicDashboard() {
     const initDashboard = async () => {
       setLoading(true);
 
+      // 🟢 1. RESTORE TOKEN: Check if we have a saved Google Token from before
+      const savedToken = localStorage.getItem("google_access_token");
+      if (savedToken) {
+        setGoogleToken(savedToken);
+      }
+
       // 1. Get Current User
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -574,9 +580,10 @@ export default function DynamicDashboard() {
       // inside handleOpenPicker...
       callbackFunction: (data: any) => {
         if (data.action === "picked") {
-          // 🟢 SAVE THE TOKEN HERE:
           if (data.oauthToken) {
             setGoogleToken(data.oauthToken);
+            // 🟢 2. SAVE TOKEN: Persist it to browser storage
+            localStorage.setItem("google_access_token", data.oauthToken);
           }
           addFilesToBlock(bIdx, data.docs);
         }
@@ -909,10 +916,10 @@ export default function DynamicDashboard() {
       {/* --- MODAL --- */}
       {activeCard && (
         <div onClick={() => setActiveModal(null)} className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-6 bg-slate-900/70 backdrop-blur-sm">
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className={`bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300 ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "sm:max-w-6xl" : "sm:max-w-2xl"}`}
-          >
+          <div 
+  onClick={(e) => e.stopPropagation()} 
+  className={`bg-white w-full h-full sm:h-auto sm:max-h-[85vh] sm:rounded-2xl shadow-2xl relative overflow-hidden flex flex-col transition-all duration-300 ${showDocPreview || activeCard.type === 'generic-sheet' || activeCard.settings?.viewMode ? "sm:max-w-6xl" : "sm:max-w-2xl"}`}
+>
             {/* Header */}
             <div className={`${getBgColor(activeCard.color || 'rose')} p-6 flex justify-between items-center text-white shrink-0 transition-colors`}>
               <div>
