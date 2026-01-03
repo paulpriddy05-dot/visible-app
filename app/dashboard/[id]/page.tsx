@@ -247,21 +247,18 @@ export default function DynamicDashboard() {
     if (typeof google !== 'undefined' && google.accounts) {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/drive.file',
+        // 🟢 MATCHING SCOPE: Must match getValidToken
+        scope: 'https://www.googleapis.com/auth/drive.readonly',
         callback: (resp: any) => {
           if (resp.access_token) {
-            // Save token
             const expiresIn = (resp.expires_in || 3599) * 1000;
             localStorage.setItem("google_access_token", resp.access_token);
             localStorage.setItem("google_token_expiry", (Date.now() + expiresIn - 60000).toString());
             setGoogleToken(resp.access_token);
-
-            // Reload the page to refresh all charts with the new key
             window.location.reload();
           }
         },
       });
-      // 'consent' forces the popup to appear
       tokenClient.requestAccessToken({ prompt: 'consent' });
     }
   };
@@ -283,7 +280,8 @@ export default function DynamicDashboard() {
         if (typeof google !== 'undefined' && google.accounts) {
           const tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: GOOGLE_CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/drive.file',
+            // 🟢 SCOPE UPDATED: 'drive.readonly' allows viewing shared files
+            scope: 'https://www.googleapis.com/auth/drive.readonly',
             callback: (resp: any) => {
               if (resp.access_token) {
                 // Save new token for another hour (minus 1 min buffer)
@@ -297,6 +295,7 @@ export default function DynamicDashboard() {
               }
             },
           });
+
           // prompt: '' skips the popup if previously authorized
           tokenClient.requestAccessToken({ prompt: '' });
         } else {
@@ -305,8 +304,9 @@ export default function DynamicDashboard() {
       } catch (err) {
         reject(err);
       }
-    });
-  };
+  });
+
+    }
   
   useEffect(() => {
     if (!dashboardId) return;
