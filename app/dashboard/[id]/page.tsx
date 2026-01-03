@@ -64,6 +64,7 @@ const renderCellContent = (content: string) => {
 
 // --- SUB-COMPONENT: Sortable Manual Card ---
 // --- SUB-COMPONENT: Sortable Manual Card ---
+// --- SUB-COMPONENT: Sortable Manual Card ---
 function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -84,10 +85,10 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
     card.settings?.yAxisCol &&
     card.settings?.showOnDashboard;
 
-  // For Area/Line/Bar charts (Standard Mini Chart)
+  // 🟢 FIX: Slice the LAST 20 rows so we see recent data, not old data
   const miniChartData = useMemo(() => {
     if (!showMiniChart || !card.data) return [];
-    return card.data.slice(0, 15).map((d: any) => ({
+    return card.data.slice(-20).map((d: any) => ({
       ...d,
       [card.settings.yAxisCol]: cleanNumber(d[card.settings.yAxisCol])
     }));
@@ -129,7 +130,6 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
       {...attributes}
       {...listeners}
       onClick={() => onClick(card)}
-      /* 🟢 UPDATED: Changed p-6 to p-4, and h-40 to h-44 to fix text cutoff */
       className={`cursor-grab active:cursor-grabbing hover:-translate-y-1 hover:shadow-lg rounded-2xl p-4 text-white flex flex-col items-center justify-center text-center h-44 relative overflow-hidden group ${getBgColor(card.color || 'rose')}`}
     >
       {showMiniChart ? (
@@ -153,20 +153,26 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
                       <span>{val}</span>
                     </div>
                     <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
-                      <div className="h-full bg-white/90 rounded-full" style={{ width: `${pct}%` }}></div>
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length], boxShadow: '0 0 4px rgba(0,0,0,0.2)' }}></div>
                     </div>
                   </div>
                 )
               })}
             </div>
           ) : (
+            // 🟢 FIX: Handle Bar/Line types correctly in Mini View
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={miniChartData}>
-                <Area type="monotone" dataKey={card.settings.yAxisCol} stroke="#fff" fill="rgba(255,255,255,0.3)" strokeWidth={2} isAnimationActive={false} />
-              </AreaChart>
+              {card.settings.chartType === 'bar' ? (
+                <BarChart data={miniChartData}>
+                  <Bar dataKey={card.settings.yAxisCol} fill="rgba(255,255,255,0.8)" radius={[2, 2, 0, 0]} />
+                </BarChart>
+              ) : (
+                <AreaChart data={miniChartData}>
+                  <Area type="monotone" dataKey={card.settings.yAxisCol} stroke="#fff" fill="rgba(255,255,255,0.3)" strokeWidth={2} isAnimationActive={false} />
+                </AreaChart>
+              )}
             </ResponsiveContainer>
           )}
-          {/* Only show title if it's NOT a metric (Metric has its own label) */}
           {card.settings.chartType !== 'metric' && <div className="absolute top-4 left-0 w-full text-center text-xs font-bold uppercase opacity-80 truncate px-4">{card.title || "Untitled"}</div>}
         </div>
       ) : (
@@ -1413,92 +1419,82 @@ export default function DynamicDashboard() {
                     </div>
                   </div>
                 ) : activeCard.settings?.viewMode === 'chart' ? (
-                  <div className="p-4 md:p-8 h-full flex flex-col">
-                    <div className="flex-1 min-h-[300px] flex flex-col justify-center">
+                      <div className="p-4 md:p-8 h-full flex flex-col">
+                        <div className="flex-1 min-h-[300px] flex flex-col justify-center bg-white rounded-xl border border-slate-200 shadow-sm p-4 relative">
 
-                      {/* 1. BIG NUMBER (METRIC) */}
-                      {activeCard.settings?.chartType === 'metric' ? (
-                        <div className="flex flex-col items-center gap-4">
-                          <div className="text-7xl md:text-9xl font-bold text-slate-800 tracking-tighter">
-                            {activeCard.data.reduce((sum: number, row: any) => sum + cleanNumber(row[activeCard.settings.yAxisCol]), 0).toLocaleString()}
-                          </div>
-                          <div className="text-sm font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-3 py-1 rounded-full">
-                            {activeCard.settings.yAxisCol}
-                          </div>
-                        </div>
-                      ) : activeCard.settings?.chartType === 'progress' ? (
-
-                        /* 2. PROGRESS BARS */
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 w-full max-w-5xl mx-auto overflow-y-auto custom-scroll max-h-full p-2">
-                          {activeCard.data.map((row: any, idx: number) => {
-                            const val = cleanNumber(row[activeCard.settings.yAxisCol]);
-                            const maxVal = Math.max(...activeCard.data.map((r: any) => cleanNumber(r[activeCard.settings.yAxisCol])));
-                            const percent = maxVal > 0 ? (val / maxVal) * 100 : 0;
-
-                            return (
-                              <div key={idx} className="w-full">
-                                <div className="flex justify-between text-sm font-bold text-slate-600 mb-2">
-                                  <span>{row[activeCard.settings.xAxisCol]}</span>
-                                  <span>{val.toLocaleString()}</span>
-                                </div>
-                                <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full rounded-full shadow-sm transition-all duration-1000 ease-out"
-                                    style={{ width: `${percent}%`, backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
-                                  ></div>
-                                </div>
+                          {/* 1. METRIC */}
+                          {activeCard.settings?.chartType === 'metric' ? (
+                            <div className="flex flex-col items-center gap-4">
+                              <div className="text-7xl md:text-9xl font-bold text-slate-800 tracking-tighter">
+                                {activeCard.data.reduce((sum: number, row: any) => sum + cleanNumber(row[activeCard.settings.yAxisCol]), 0).toLocaleString()}
                               </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
+                              <div className="text-sm font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{activeCard.settings.yAxisCol}</div>
+                            </div>
+                          ) : activeCard.settings?.chartType === 'progress' ? (
 
-                        /* 3. STANDARD CHARTS (Bar, Line, Pie, Area) */
-                        <ResponsiveContainer width="100%" height="100%">
-                          {activeCard.settings?.chartType === 'line' ? (
-                            <LineChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
-                              <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
-                              <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                              <Line type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
-                            </LineChart>
-                          ) : activeCard.settings?.chartType === 'area' ? (
-                            <AreaChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                              <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
-                              <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
-                              <Tooltip />
-                              <Area type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" fill="#ddd6fe" />
-                            </AreaChart>
-                          ) : activeCard.settings?.chartType === 'pie' || activeCard.settings?.chartType === 'donut' ? (
-                            <PieChart>
-                              <Pie
-                                data={activeCard.data.map((d: any) => ({ name: d[activeCard.settings.xAxisCol], value: cleanNumber(d[activeCard.settings.yAxisCol]) }))}
-                                cx="50%" cy="50%"
-                                innerRadius={activeCard.settings?.chartType === 'donut' ? 60 : 0}
-                                outerRadius={120}
-                                paddingAngle={5}
-                                dataKey="value"
-                              >
-                                {activeCard.data.map((entry: any, index: number) => (<Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />))}
-                              </Pie>
-                              <Tooltip formatter={(value: number) => value.toLocaleString()} />
-                              <Legend verticalAlign="bottom" />
-                            </PieChart>
+                            /* 2. PROGRESS */
+                            <div className="w-full h-full overflow-y-auto custom-scroll p-2">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 w-full max-w-5xl mx-auto">
+                                {activeCard.data.map((row: any, idx: number) => {
+                                  const val = cleanNumber(row[activeCard.settings.yAxisCol]);
+                                  const maxVal = Math.max(...activeCard.data.map((r: any) => cleanNumber(r[activeCard.settings.yAxisCol])));
+                                  const percent = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                                  return (
+                                    <div key={idx} className="w-full">
+                                      <div className="flex justify-between text-sm font-bold text-slate-600 mb-2">
+                                        <span className="truncate pr-2">{row[activeCard.settings.xAxisCol]}</span>
+                                        <span>{val.toLocaleString()}</span>
+                                      </div>
+                                      <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full shadow-sm" style={{ width: `${percent}%`, backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}></div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           ) : (
-                            <BarChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-                              <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
-                              <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
-                              <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                              <Bar dataKey={activeCard.settings.yAxisCol} fill="#6366f1" radius={[4, 4, 0, 0]} />
-                            </BarChart>
+
+                            /* 3. STANDARD CHARTS */
+                            <ResponsiveContainer width="100%" height="100%">
+                              {activeCard.settings?.chartType === 'line' ? (
+                                <LineChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                  <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} tickFormatter={(val) => `${val}`} />
+                                  <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                  <Line type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: '#8b5cf6' }} />
+                                </LineChart>
+                              ) : activeCard.settings?.chartType === 'area' ? (
+                                <AreaChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                  <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                  <Tooltip />
+                                  <Area type="monotone" dataKey={activeCard.settings.yAxisCol} stroke="#8b5cf6" fill="#ddd6fe" />
+                                </AreaChart>
+                              ) : activeCard.settings?.chartType === 'pie' || activeCard.settings?.chartType === 'donut' ? (
+                                <PieChart>
+                                  <Pie data={activeCard.data.map((d: any) => ({ name: d[activeCard.settings.xAxisCol], value: cleanNumber(d[activeCard.settings.yAxisCol]) }))} cx="50%" cy="50%" innerRadius={activeCard.settings?.chartType === 'donut' ? 60 : 0} outerRadius={120} paddingAngle={5} dataKey="value">
+                                    {activeCard.data.map((entry: any, index: number) => (<Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />))}
+                                  </Pie>
+                                  <Tooltip formatter={(value: number) => value.toLocaleString()} />
+                                  <Legend verticalAlign="bottom" />
+                                </PieChart>
+                              ) : (
+                                /* 🟢 DEFAULT TO BAR CHART IF NONE MATCHES */
+                                <BarChart data={activeCard.data.map((d: any) => ({ ...d, [activeCard.settings.yAxisCol]: cleanNumber(d[activeCard.settings.yAxisCol]) }))}>
+                                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                                  <XAxis dataKey={activeCard.settings.xAxisCol} stroke="#64748b" fontSize={12} tickLine={false} />
+                                  <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
+                                  <Tooltip cursor={{ fill: '#f1f5f9' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                                  <Bar dataKey={activeCard.settings.yAxisCol} fill="#6366f1" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                              )}
+                            </ResponsiveContainer>
                           )}
-                        </ResponsiveContainer>
-                      )}
-                    </div>
-                  </div>
+                        </div>
+                      </div>
                 ) : activeCard.settings?.viewMode === 'card' ? (
                   <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {activeCard.data.filter((row: any) => row[activeCard.settings.titleCol]).map((row: any, idx: number) => (
