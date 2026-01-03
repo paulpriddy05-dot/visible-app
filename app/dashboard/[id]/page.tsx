@@ -18,6 +18,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend
 } from 'recharts';
+declare const google: any;
 
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6'];
 
@@ -221,6 +222,49 @@ export default function DynamicDashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [googleToken, setGoogleToken] = useState<string>("");
 
+  // 🟢 SMART TOKEN HANDLER: Gets a valid token, refreshing silently if needed
+  const getValidToken = async () => {
+    const currentToken = localStorage.getItem("google_access_token");
+    const expiry = localStorage.getItem("google_token_expiry");
+    const now = Date.now();
+
+    // If we have a valid token with >5 mins remaining, use it
+    if (currentToken && expiry && now < parseInt(expiry)) {
+      return currentToken;
+    }
+
+    // Otherwise, try to silent-refresh using Google's script
+    return new Promise<string>((resolve, reject) => {
+      try {
+        // @ts-ignore - Google script is loaded by the picker or we wait for it
+        if (typeof google !== 'undefined' && google.accounts) {
+          const tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: 'https://www.googleapis.com/auth/drive.file',
+            callback: (resp: any) => {
+              if (resp.access_token) {
+                // Save new token for another hour (minus 1 min buffer)
+                const expiresIn = (resp.expires_in || 3599) * 1000;
+                localStorage.setItem("google_access_token", resp.access_token);
+                localStorage.setItem("google_token_expiry", (Date.now() + expiresIn - 60000).toString());
+                setGoogleToken(resp.access_token);
+                resolve(resp.access_token);
+              } else {
+                reject("No token returned");
+              }
+            },
+          });
+          // prompt: '' skips the popup if previously authorized
+          tokenClient.requestAccessToken({ prompt: '' });
+        } else {
+          reject("Google Script not loaded yet");
+        }
+      } catch (err) {
+        reject(err);
+      }
+    });
+  };
+  
   useEffect(() => {
     if (!dashboardId) return;
 
@@ -237,7 +281,6 @@ export default function DynamicDashboard() {
       const { data: { user } } = await supabase.auth.getUser();
 
       // 2. Get Dashboard Config
-      // We removed the dependency on 'user_id' from this table to stop the 400 Error
       const { data: dashConfig, error } = await supabase
         .from('dashboards')
         .select('*')
@@ -246,14 +289,11 @@ export default function DynamicDashboard() {
 
       if (error || !dashConfig) {
         console.error("Dashboard Load Error:", error);
-        // Optional: You could adding a setLoading(false) here if you want to show an error state
         return;
       }
 
-      // 3. 🟢 ROBUST PERMISSION CHECK
-      // We determine permissions 100% from the 'dashboard_access' list now.
+      // 3. Permission Check
       let userCanEdit = false;
-
       if (user) {
         const { data: accessList } = await supabase
           .from('dashboard_access')
@@ -261,35 +301,21 @@ export default function DynamicDashboard() {
           .eq('dashboard_id', dashboardId);
 
         if (accessList) {
-          // Find MY permission row by matching EITHER my ID OR my Email
-          // This fixes the bug where invited users (via email) were seen as "Viewers"
           const myPermission = accessList.find(row =>
             row.user_id === user.id ||
             (user.email && row.user_email?.toLowerCase() === user.email.toLowerCase())
           );
 
-          if (myPermission) {
-            const role = myPermission.role?.toLowerCase();
-            // Grant edit access if I am 'owner', 'editor', or 'edit'
-            if (['owner', 'editor', 'edit'].includes(role)) {
-              userCanEdit = true;
-              console.log(`✅ Access Granted: User is ${role}`);
-            } else {
-              console.log(`ℹ️ View Only: User is ${role}`);
-            }
-          } else {
-            console.log("ℹ️ User not found in access list (View Only)");
+          if (myPermission && ['owner', 'editor', 'edit'].includes(myPermission.role?.toLowerCase())) {
+            userCanEdit = true;
           }
         }
       }
-
       setCanEdit(userCanEdit);
 
-      // 4. Load the rest of the dashboard data (Keep existing logic)
+      // 4. Load remaining data
       const { data: secureToken } = await supabase.rpc('get_or_create_invite_token', { p_dashboard_id: dashboardId });
-      if (secureToken) {
-        dashConfig.share_token = secureToken;
-      }
+      if (secureToken) dashConfig.share_token = secureToken;
 
       setConfig(dashConfig);
       if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
@@ -297,7 +323,43 @@ export default function DynamicDashboard() {
       if (dashConfig.settings?.missionsTitle) { setMissionsTitle(dashConfig.settings.missionsTitle); }
 
       await fetchSheetData(dashConfig);
-      await fetchManualCards();
+
+      // 🟢 UPDATED: Load manual cards AND smart-fetch data for dashboards
+      const { data: manualData } = await supabase.from('Weeks').select('*').eq('dashboard_id', dashboardId).order('sort_order', { ascending: true });
+      if (manualData) {
+        const cardsWithSource = manualData.map((item: any) => ({ ...item, source: 'manual' }));
+        setManualCards(cardsWithSource);
+
+        // 🚀 HYDRATION LOOP: Fetch CSV data with smart-refresh
+        cardsWithSource.forEach(async (c: any) => {
+          if (c.settings?.showOnDashboard && c.settings?.connectedSheet) {
+            try {
+              // Attempt to get a valid token silently
+              const token = await getValidToken().catch(() => null);
+              const headers: any = {};
+              if (token) { headers.Authorization = `Bearer ${token}`; }
+
+              const r = await fetch(toCSVUrl(c.settings.connectedSheet), { headers });
+              if (r.ok) {
+                const text = await r.text();
+                Papa.parse(text, {
+                  header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(),
+                  complete: (res: any) => {
+                    setManualCards(prev => prev.map(p =>
+                      p.id === c.id
+                        ? { ...p, data: res.data, rowCount: res.data.length, columns: res.meta.fields }
+                        : p
+                    ));
+                  }
+                });
+              }
+            } catch (err) {
+              console.warn(`Could not load ${c.title}`, err);
+            }
+          }
+        });
+      }
+
       await fetchGenericWidgets();
       setLoading(false);
     };
@@ -305,23 +367,29 @@ export default function DynamicDashboard() {
     initDashboard();
   }, [dashboardId]);
 
+  
   const loadSheetData = async (url: string, card: any) => {
     try {
       const csvUrl = toCSVUrl(url);
 
-      // 🟢 DEFINE HEADERS DYNAMICALLY
-      const headers: any = {};
-      if (googleToken) {
-        headers.Authorization = `Bearer ${googleToken}`;
+      // 🟢 GET VALID TOKEN (Silently refreshes if needed)
+      let token = "";
+      try {
+        token = await getValidToken();
+      } catch (err) {
+        console.warn("Silent refresh failed, user might need to click 'Connect'", err);
       }
 
-      // 🟢 PASS THE HEADERS
+      const headers: any = {};
+      if (token) { headers.Authorization = `Bearer ${token}`; }
+
       const response = await fetch(csvUrl, { headers });
 
       if (!response.ok) {
-        console.warn(`Could not load sheet for ${card.title}: ${response.status}`);
+        if (response.status === 401) console.error("Token invalid even after refresh");
         return;
       }
+
       const csvText = await response.text();
       Papa.parse(csvText, {
         header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(),
@@ -580,10 +648,13 @@ export default function DynamicDashboard() {
       // inside handleOpenPicker...
       callbackFunction: (data: any) => {
         if (data.action === "picked") {
+          // 🟢 SAVE TOKEN & EXPIRY
           if (data.oauthToken) {
             setGoogleToken(data.oauthToken);
-            // 🟢 2. SAVE TOKEN: Persist it to browser storage
             localStorage.setItem("google_access_token", data.oauthToken);
+            // Default Google token life is 1 hour (3600s). We deduct 1 min buffer.
+            const expiryTime = Date.now() + (3599 * 1000) - 60000;
+            localStorage.setItem("google_token_expiry", expiryTime.toString());
           }
           addFilesToBlock(bIdx, data.docs);
         }
