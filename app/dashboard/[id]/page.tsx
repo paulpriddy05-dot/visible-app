@@ -871,7 +871,37 @@ export default function DynamicDashboard() {
       window.open(item.url, '_blank');
     }
   };
+  // 🟢 AUTHORIZE ACCESS: Lets a viewer "bless" a file so they can see it
+  const handleAuthorizeAccess = () => {
+    openPicker({
+      clientId: GOOGLE_CLIENT_ID,
+      developerKey: GOOGLE_API_KEY,
+      viewId: "DOCS",
+      // 🟢 Shows all files so they can find the shared one
+      showUploadView: false,
+      showUploadFolders: true,
+      supportDrives: true,
+      multiselect: false,
+      callbackFunction: (data: any) => {
+        if (data.action === "picked") {
+          // 1. Save the token they just used
+          if (data.oauthToken) {
+            setGoogleToken(data.oauthToken);
+            localStorage.setItem("google_access_token", data.oauthToken);
+            // Set expiry for 1 hour
+            const expiryTime = Date.now() + (3599 * 1000) - 60000;
+            localStorage.setItem("google_token_expiry", expiryTime.toString());
+          }
 
+          // 2. Refresh the data (Now that we have permission)
+          // We don't save to DB, we just reload the card in memory
+          if (activeCard.settings?.connectedSheet) {
+            loadSheetData(activeCard.settings.connectedSheet, activeCard);
+          }
+        }
+      }
+    });
+  };
   if (loading) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">Loading...</div>;
 
   const weeklyScheduleItems = [...scheduleCards, ...manualCards.filter(c => c.settings?.category === "Weekly Schedule"), ...genericWidgets.filter(c => c.settings?.category === "Weekly Schedule")];
@@ -1166,26 +1196,29 @@ export default function DynamicDashboard() {
 
               {/* VISUALIZATION MODE */}
               {activeCard.settings?.viewMode ? (
-                /* 🟢 UPDATED LOADING STATE: Includes "Connect" button for new users */
+                /* 🟢 LOADING STATE: With "Authorize" Button for Viewers */
                 (!activeCard.data && activeCard.type !== 'generic-sheet') ? (
                   <div className="flex flex-col h-full items-center justify-center text-slate-400 gap-6">
                     <div className="flex items-center gap-3">
-                      <i className="fas fa-circle-notch fa-spin text-2xl text-blue-500"></i>
-                      <span className="font-medium">Loading Data...</span>
+                        <i className="fas fa-circle-notch fa-spin text-2xl text-blue-500"></i>
+                        <span className="font-medium">Loading Data...</span>
                     </div>
-
+                    
                     {/* The Button for Viewers */}
-                    <div className="text-center space-y-2">
-                      <p className="text-xs text-slate-400">Stuck here? You may need to connect your account.</p>
-                      <button
-                        onClick={handleManualAuth}
-                        className="flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-all"
-                      >
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" className="w-4 h-4" alt="Drive" />
-                        Connect Google Drive
-                      </button>
+                    <div className="text-center space-y-2 max-w-xs">
+                        <p className="text-xs text-slate-400">
+                           Can't see the chart? Google requires you to select the file to confirm access.
+                        </p>
+                        <button 
+                            onClick={handleAuthorizeAccess} 
+                            className="w-full flex items-center justify-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 transition-all"
+                        >
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/1/12/Google_Drive_icon_%282020%29.svg" className="w-4 h-4" alt="Drive" />
+                            Select File to View
+                        </button>
                     </div>
                   </div>
+                  
                 ) : isMapping ? (
                   <div className="flex h-full">
                     {/* LEFT SIDEBAR: CONTROLS */}
