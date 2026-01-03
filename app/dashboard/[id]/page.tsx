@@ -1764,7 +1764,7 @@ export default function DynamicDashboard() {
                   </div>
                 )
               )}
-              {showDocPreview && <iframe src={showDocPreview} className="w-full h-full border-none bg-white flex-1" title="Doc Preview"></iframe>}
+              {showDocPreview && <iframe src={showDocPreview} className="w-full h-[75vh] border-none bg-white flex-1" title="Doc Preview"></iframe>}
             </div>
           </div>
         </div>
