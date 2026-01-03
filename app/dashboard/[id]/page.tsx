@@ -877,14 +877,17 @@ export default function DynamicDashboard() {
       clientId: GOOGLE_CLIENT_ID,
       developerKey: GOOGLE_API_KEY,
       viewId: "DOCS",
-      // 🟢 Shows all files so they can find the shared one
+
+      // 🟢 CRITICAL ADDITION: Forces the picker to use the SAFE scope
+      // This ensures we don't trigger the "Unverified App" warning again.
+      customScopes: ['https://www.googleapis.com/auth/drive.file'],
+
       showUploadView: false,
       showUploadFolders: true,
       supportDrives: true,
       multiselect: false,
       callbackFunction: (data: any) => {
         if (data.action === "picked") {
-          // 1. Save the token they just used
           if (data.oauthToken) {
             setGoogleToken(data.oauthToken);
             localStorage.setItem("google_access_token", data.oauthToken);
@@ -893,8 +896,6 @@ export default function DynamicDashboard() {
             localStorage.setItem("google_token_expiry", expiryTime.toString());
           }
 
-          // 2. Refresh the data (Now that we have permission)
-          // We don't save to DB, we just reload the card in memory
           if (activeCard.settings?.connectedSheet) {
             loadSheetData(activeCard.settings.connectedSheet, activeCard);
           }
