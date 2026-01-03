@@ -142,8 +142,10 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
             </div>
           ) : card.settings.chartType === 'progress' ? (
             <div className="flex flex-col justify-center h-full space-y-2 pt-2">
-              {card.data.slice(0, 3).map((row: any, i: number) => {
+              {/* 🟢 FIX: Slice LAST 3 rows (-3) and Reverse them so newest is top */}
+              {card.data.slice(-3).reverse().map((row: any, i: number) => {
                 const val = cleanNumber(row[card.settings.yAxisCol]);
+                // Calculate max from the visible set or the whole dataset? usually whole dataset is safer context
                 const max = Math.max(...card.data.map((r: any) => cleanNumber(r[card.settings.yAxisCol])));
                 const pct = max > 0 ? (val / max) * 100 : 0;
                 return (
@@ -153,7 +155,14 @@ function SortableCard({ card, onClick, getBgColor, variant = 'vertical' }: any) 
                       <span>{val}</span>
                     </div>
                     <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: CHART_COLORS[i % CHART_COLORS.length], boxShadow: '0 0 4px rgba(0,0,0,0.2)' }}></div>
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                          boxShadow: '0 0 4px rgba(0,0,0,0.2)'
+                        }}
+                      ></div>
                     </div>
                   </div>
                 )
@@ -1431,29 +1440,30 @@ export default function DynamicDashboard() {
                             </div>
                             <div className="text-sm font-bold uppercase tracking-widest text-slate-400 bg-slate-50 px-3 py-1 rounded-full">{activeCard.settings.yAxisCol}</div>
                           </div>
-                        ) : activeCard.settings?.chartType === 'progress' ? (
+                          ) : activeCard.settings?.chartType === 'progress' ? (
 
-                          /* 2. PROGRESS BARS */
-                          <div className="h-[500px] w-full overflow-y-auto custom-scroll p-2">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 w-full max-w-5xl mx-auto">
-                              {activeCard.data.map((row: any, idx: number) => {
-                                const val = cleanNumber(row[activeCard.settings.yAxisCol]);
-                                const maxVal = Math.max(...activeCard.data.map((r: any) => cleanNumber(r[activeCard.settings.yAxisCol])));
-                                const percent = maxVal > 0 ? (val / maxVal) * 100 : 0;
-                                return (
-                                  <div key={idx} className="w-full">
-                                    <div className="flex justify-between text-sm font-bold text-slate-600 mb-2">
-                                      <span className="truncate pr-2">{row[activeCard.settings.xAxisCol]}</span>
-                                      <span>{val.toLocaleString()}</span>
+                            /* 2. PROGRESS BARS (Reversed Order) */
+                            <div className="h-[500px] w-full overflow-y-auto custom-scroll p-2">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 w-full max-w-5xl mx-auto">
+                                {/* 🟢 FIX: Create a copy [...data] then reverse() to show Newest First */}
+                                {[...activeCard.data].reverse().map((row: any, idx: number) => {
+                                  const val = cleanNumber(row[activeCard.settings.yAxisCol]);
+                                  const maxVal = Math.max(...activeCard.data.map((r: any) => cleanNumber(r[activeCard.settings.yAxisCol])));
+                                  const percent = maxVal > 0 ? (val / maxVal) * 100 : 0;
+                                  return (
+                                    <div key={idx} className="w-full">
+                                      <div className="flex justify-between text-sm font-bold text-slate-600 mb-2">
+                                        <span className="truncate pr-2">{row[activeCard.settings.xAxisCol]}</span>
+                                        <span>{val.toLocaleString()}</span>
+                                      </div>
+                                      <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full shadow-sm" style={{ width: `${percent}%`, backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}></div>
+                                      </div>
                                     </div>
-                                    <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                      <div className="h-full rounded-full shadow-sm" style={{ width: `${percent}%`, backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}></div>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
                         ) : (
 
                           /* 3. STANDARD CHARTS (Bar, Line, etc.) */
