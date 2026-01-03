@@ -242,13 +242,14 @@ export default function DynamicDashboard() {
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [googleToken, setGoogleToken] = useState<string>("");
   // 🟢 MANUAL AUTH: Forces the popup for new users who haven't connected yet
+  // 🟢 MANUAL AUTH (Reverted to Safe Scope)
   const handleManualAuth = () => {
     // @ts-ignore
     if (typeof google !== 'undefined' && google.accounts) {
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
-        // 🟢 MATCHING SCOPE: Must match getValidToken
-        scope: 'https://www.googleapis.com/auth/drive.readonly',
+        // 🟢 REVERTED: Back to 'drive.file' (No Audit Required)
+        scope: 'https://www.googleapis.com/auth/drive.file',
         callback: (resp: any) => {
           if (resp.access_token) {
             const expiresIn = (resp.expires_in || 3599) * 1000;
@@ -263,28 +264,26 @@ export default function DynamicDashboard() {
     }
   };
   // 🟢 SMART TOKEN HANDLER: Gets a valid token, refreshing silently if needed
+  // 🟢 SMART TOKEN HANDLER (Reverted to Safe Scope)
   const getValidToken = async () => {
     const currentToken = localStorage.getItem("google_access_token");
     const expiry = localStorage.getItem("google_token_expiry");
     const now = Date.now();
 
-    // If we have a valid token with >5 mins remaining, use it
     if (currentToken && expiry && now < parseInt(expiry)) {
       return currentToken;
     }
 
-    // Otherwise, try to silent-refresh using Google's script
     return new Promise<string>((resolve, reject) => {
       try {
-        // @ts-ignore - Google script is loaded by the picker or we wait for it
+        // @ts-ignore
         if (typeof google !== 'undefined' && google.accounts) {
           const tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: GOOGLE_CLIENT_ID,
-            // 🟢 SCOPE UPDATED: 'drive.readonly' allows viewing shared files
-            scope: 'https://www.googleapis.com/auth/drive.readonly',
+            // 🟢 REVERTED: Back to 'drive.file' (No Audit Required)
+            scope: 'https://www.googleapis.com/auth/drive.file',
             callback: (resp: any) => {
               if (resp.access_token) {
-                // Save new token for another hour (minus 1 min buffer)
                 const expiresIn = (resp.expires_in || 3599) * 1000;
                 localStorage.setItem("google_access_token", resp.access_token);
                 localStorage.setItem("google_token_expiry", (Date.now() + expiresIn - 60000).toString());
@@ -295,8 +294,6 @@ export default function DynamicDashboard() {
               }
             },
           });
-
-          // prompt: '' skips the popup if previously authorized
           tokenClient.requestAccessToken({ prompt: '' });
         } else {
           reject("Google Script not loaded yet");
@@ -304,9 +301,8 @@ export default function DynamicDashboard() {
       } catch (err) {
         reject(err);
       }
-  });
-
-    }
+    });
+  };
   
   useEffect(() => {
     if (!dashboardId) return;
