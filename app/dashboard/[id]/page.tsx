@@ -730,6 +730,7 @@ export default function DynamicDashboard() {
   const handleSave = async () => { if (!activeCard || activeCard.source?.includes("sheet")) return; const newTitle = titleRef.current?.innerText || activeCard.title; const updated = { ...activeCard, title: newTitle }; setManualCards(manualCards.map(c => c.id === activeCard.id ? updated : c)); setActiveCard(updated); await supabase.from('Weeks').update({ title: newTitle }).eq('id', activeCard.id); };
 
   const setActiveModal = (card: any) => {
+    // 1. Handle Closing
     if (!card) {
       if (isEditing && activeCard) handleSave();
       setActiveCard(null);
@@ -740,6 +741,7 @@ export default function DynamicDashboard() {
       return;
     }
 
+    // 2. Handle Opening
     if (isEditing && activeCard) handleSave();
     setIsEditing(false);
     setIsMapping(false);
@@ -747,16 +749,17 @@ export default function DynamicDashboard() {
 
     const cardToLoad = { ...card };
 
-    if (cardToLoad.source === 'manual') {
-      if (cardToLoad.settings) {
-        cardToLoad.settings = { ...cardToLoad.settings, viewMode: null };
+    // 🟢 FIX: Don't reset viewMode. Instead, respect what was saved.
+    // If we have a chartType saved but no viewMode explicit, default to 'chart'.
+    if (cardToLoad.source === 'manual' && cardToLoad.settings) {
+      if (cardToLoad.settings.chartType && !cardToLoad.settings.viewMode) {
+        cardToLoad.settings.viewMode = 'chart';
       }
     }
 
-    // 🟢 UPDATED: Always fetch fresh data if a sheet is connected.
-    // Previously, we only fetched if (!cardToLoad.data).
-    // Now we fetch regardless, ensuring you get the full 196+ rows every time.
+    // 3. Auto-load data if a sheet is connected
     if (cardToLoad.settings?.connectedSheet) {
+      // Pass the card settings so the loader knows we want to stay in 'chart' mode
       loadSheetData(cardToLoad.settings.connectedSheet, cardToLoad);
     }
 
