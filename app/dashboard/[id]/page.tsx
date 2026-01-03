@@ -19,6 +19,19 @@ import {
   PieChart, Pie, Cell, Legend
 } from 'recharts';
 declare const google: any;
+import {
+  // ... keep existing ...
+  useDroppable // 🟢 ADD THIS
+} from '@dnd-kit/core';
+// 🟢 NEW COMPONENT: Allows dropping into empty spaces
+function DroppableSection({ id, children, className }: any) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={className}>
+      {children}
+    </div>
+  );
+}
 
 const CHART_COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6'];
 
