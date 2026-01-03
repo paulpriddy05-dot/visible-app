@@ -129,7 +129,7 @@ export default function LandingPage() {
                             <ul className="space-y-4 mb-8 flex-1 text-left">
                                 <PricingCheck text="1 Dashboard" />
                                 <PricingCheck text="Up to 10 pinned files" />
-                                <PricingCheck text="Basic layouts" />
+                                <PricingCheck text="One data visualization" />
                             </ul>
                             <Link href="/login" className="w-full block py-3 px-4 bg-slate-100 text-slate-900 font-bold rounded-xl hover:bg-slate-200 transition-colors">
                                 Start for Free
@@ -143,14 +143,14 @@ export default function LandingPage() {
                             </div>
                             <div className="mb-4">
                                 <span className="text-indigo-600 font-bold">Pro</span>
-                                <div className="text-4xl font-bold text-slate-900 mt-2">$5</div>
+                                <div className="text-4xl font-bold text-slate-900 mt-2">$2</div>
                                 <div className="text-slate-400 text-sm mt-1">per month</div>
                             </div>
                             <ul className="space-y-4 mb-8 flex-1 text-left">
                                 <PricingCheck text="Unlimited Dashboards" highlight />
                                 <PricingCheck text="Unlimited pinned files" highlight />
                                 <PricingCheck text="Unlimited visualization" highlight />
-                                <PricingCheck text="Unlimited dashboard members" highlight />
+                                <PricingCheck text="Up to 5 team members" highlight />
                             </ul>
                             {/* LEMON SQUEEZY LINK HERE */}
                             <a
@@ -159,6 +159,22 @@ export default function LandingPage() {
                             >
                                 Get Pro
                             </a>
+                        </div>
+
+                        {/* PLAN 3: TEAM */}
+                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col">
+                            <div className="mb-4">
+                                <span className="text-slate-500 font-medium">Team</span>
+                                <div className="text-4xl font-bold text-slate-900 mt-2">$5</div>
+                                <div className="text-slate-400 text-sm mt-1">per user / month</div>
+                            </div>
+                            <ul className="space-y-4 mb-8 flex-1 text-left">
+                                <PricingCheck text="Everything in Pro" />
+                                <PricingCheck text="Unlimited team members" />          
+                            </ul>
+                            <Link href="/login" className="w-full block py-3 px-4 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                                Contact Sales
+                            </Link>
                         </div>
 
                     </div>
