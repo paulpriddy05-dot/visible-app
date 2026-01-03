@@ -373,12 +373,26 @@ export default function DynamicDashboard() {
         cardsWithSource.forEach(async (c: any) => {
           if (c.settings?.showOnDashboard && c.settings?.connectedSheet) {
             try {
-              // Attempt to get a valid token silently
-              const token = await getValidToken().catch(() => null);
-              const headers: any = {};
-              if (token) { headers.Authorization = `Bearer ${token}`; }
+              const url = toCSVUrl(c.settings.connectedSheet);
 
-              const r = await fetch(toCSVUrl(c.settings.connectedSheet), { headers });
+              // 1. Get Token (if available)
+              const token = await getValidToken().catch(() => null);
+
+              let r;
+
+              // 2. Try WITH Token (Best for private files)
+              if (token) {
+                r = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+              }
+
+              // 🟢 3. FALLBACK: If token failed (403/401) or we didn't have one, try ANONYMOUS
+              // This fixes the "Poison Token" issue for Published/Shared sheets
+              if (!r || !r.ok) {
+                // Try again with NO headers (Anonymous request)
+                r = await fetch(url);
+              }
+
+              // 4. Process Result
               if (r.ok) {
                 const text = await r.text();
                 Papa.parse(text, {
@@ -875,13 +889,13 @@ export default function DynamicDashboard() {
   const handleAuthorizeAccess = () => {
     // @ts-ignore
     if (typeof google !== 'undefined' && google.accounts) {
-
+      
       // Step 1: Initialize the Token Client with the SAFE scope
       const tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/drive.file', // <--- The Critical Safe Scope
         callback: (tokenResponse: any) => {
-
+          
           if (tokenResponse.access_token) {
             // Save the fresh token
             const expiresIn = (tokenResponse.expires_in || 3599) * 1000;
@@ -903,7 +917,7 @@ export default function DynamicDashboard() {
                 if (data.action === "picked") {
                   // Reload the card data now that we have permission
                   if (activeCard.settings?.connectedSheet) {
-                    loadSheetData(activeCard.settings.connectedSheet, activeCard);
+                     loadSheetData(activeCard.settings.connectedSheet, activeCard);
                   }
                 }
               }
