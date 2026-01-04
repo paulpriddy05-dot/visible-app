@@ -166,7 +166,7 @@ export default function LandingPage() {
                             <div className="mb-4">
                                 <span className="text-slate-500 font-medium">Team</span>
                                 <div className="text-4xl font-bold text-slate-900 mt-2">$5 / $50</div>
-                                <div className="text-slate-400 text-sm mt-1">per user / month / Annually</div>
+                                <div className="text-slate-400 text-sm mt-1"> month / annually</div>
                             </div>
                             <ul className="space-y-4 mb-8 flex-1 text-left">
                                 <PricingCheck text="Everything in Pro" />
