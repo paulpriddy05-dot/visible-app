@@ -1,4 +1,6 @@
-import React from 'react';
+"use client";
+
+import React, { useState } from 'react';
 import {
   Search,
   Bell,
@@ -7,14 +9,44 @@ import {
   FolderOpen,
   Trash2,
   Layers,
-  TrendingUp
+  TrendingUp,
+  X,
+  ExternalLink,
+  Download
 } from 'lucide-react';
 
-export default function DemoDashboard() {
-  return (
-    <div className="w-full bg-slate-50 overflow-hidden flex flex-col md:flex-row h-[500px] md:h-[600px] text-left">
+// --- MOCK DATA FOR MODALS ---
+const METRICS_DATA = {
+  id: "metrics",
+  title: "Active Deals",
+  type: "metrics",
+  color: "teal",
+  primary: "42",
+  sub: "+12% vs last week",
+  breakdown: [
+    { label: "Proposal Stage", val: "18" },
+    { label: "Negotiation", val: "12" },
+    { label: "Closed Won", val: "8" },
+    { label: "On Hold", val: "4" }
+  ]
+};
 
-      {/* --- SIDEBAR (Mock) --- */}
+const FILE_DATA = {
+  id: "file1",
+  title: "Q4 Financials",
+  type: "file",
+  color: "blue",
+  meta: "Google Sheets • Updated yesterday",
+  size: "2.4 MB"
+};
+
+export default function DemoDashboard() {
+  const [activeCard, setActiveCard] = useState<any>(null);
+
+  return (
+    <div className="w-full bg-slate-50 overflow-hidden flex flex-col md:flex-row h-[500px] md:h-[600px] text-left relative font-sans">
+
+      {/* --- SIDEBAR (Static) --- */}
       <div className="w-16 md:w-20 bg-white border-r border-slate-200 flex flex-col items-center py-6 gap-6 z-10 hidden sm:flex">
         <div className="h-10 w-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-200">
           <span className="text-white font-bold text-lg">V</span>
@@ -54,15 +86,16 @@ export default function DemoDashboard() {
             <div className="flex items-center gap-2 mb-4 group cursor-pointer">
               <Layers size={16} className="text-slate-400" />
               <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase">Planning & Resources</h3>
-              <Trash2 size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400" />
             </div>
 
             <div className="flex gap-6 overflow-visible">
 
-              {/* THE ACTIVE DEALS CARD (Teal Gradient + Upward Graph) */}
-              <div className="w-full md:w-[400px] h-[220px] rounded-2xl p-6 relative flex flex-col shadow-sm transition-transform hover:-translate-y-1 duration-300"
-                style={{ background: 'linear-gradient(135deg, #2b87ab 0%, #207596 100%)' }}>
-
+              {/* THE ACTIVE DEALS CARD (Clickable) */}
+              <div
+                onClick={() => setActiveCard(METRICS_DATA)}
+                className="w-full md:w-[400px] h-[220px] rounded-2xl p-6 relative flex flex-col shadow-sm transition-transform hover:-translate-y-1 hover:shadow-lg cursor-pointer duration-300"
+                style={{ background: 'linear-gradient(135deg, #2b87ab 0%, #207596 100%)' }}
+              >
                 {/* Header: Title & Stats */}
                 <div className="flex justify-between items-start mb-2 relative z-10">
                   <div>
@@ -84,23 +117,12 @@ export default function DemoDashboard() {
                         <stop offset="100%" stopColor="white" stopOpacity="0" />
                       </linearGradient>
                     </defs>
-
-                    {/* The Filled Area */}
                     <path
-                      d="M0,100 
-                         C40,90 80,80 120,60 
-                         S200,40 240,30 
-                         S280,10 300,5 
-                         L300,150 L0,150 Z"
+                      d="M0,100 C40,90 80,80 120,60 S200,40 240,30 S280,10 300,5 L300,150 L0,150 Z"
                       fill="url(#chartGradientOld)"
                     />
-
-                    {/* The White Line (Stroke) - Consistent Upward Trend */}
                     <path
-                      d="M0,100 
-                         C40,90 80,80 120,60 
-                         S200,40 240,30 
-                         S280,10 300,5"
+                      d="M0,100 C40,90 80,80 120,60 S200,40 240,30 S280,10 300,5"
                       fill="none"
                       stroke="white"
                       strokeWidth="3"
@@ -110,7 +132,7 @@ export default function DemoDashboard() {
                 </div>
               </div>
 
-              {/* Placeholder for "Next Card" to show scrolling effect */}
+              {/* Placeholder for "Next Card" */}
               <div className="hidden md:block w-32 h-[220px] bg-[#369CA5] rounded-l-2xl opacity-80" />
             </div>
           </div>
@@ -120,12 +142,14 @@ export default function DemoDashboard() {
             <div className="flex items-center gap-2 mb-4 group">
               <Layers size={16} className="text-slate-400" />
               <h3 className="text-xs font-bold text-slate-400 tracking-wider uppercase">Sample Section</h3>
-              <Trash2 size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-400" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* File Card 1 */}
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+              {/* File Card 1 (Clickable) */}
+              <div
+                onClick={() => setActiveCard(FILE_DATA)}
+                className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 cursor-pointer hover:border-blue-400 transition-colors"
+              >
                 <div className="h-10 w-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
                   <FileText size={20} />
                 </div>
@@ -136,14 +160,87 @@ export default function DemoDashboard() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
+
+      {/* --- MODAL OVERLAY (Restored Functionality) --- */}
+      {activeCard && (
+        <div
+          onClick={() => setActiveCard(null)}
+          className="absolute inset-0 z-50 flex items-center justify-center px-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+          >
+            {/* Modal Header */}
+            <div className={`p-6 flex justify-between items-center text-white`}
+              style={{ background: activeCard.color === 'teal' ? 'linear-gradient(135deg, #2b87ab 0%, #207596 100%)' : '#3b82f6' }}>
+              <div>
+                <h3 className="text-xl font-bold">{activeCard.title}</h3>
+                {activeCard.type === 'file' && <div className="text-xs opacity-80">{activeCard.meta}</div>}
+              </div>
+              <button onClick={() => setActiveCard(null)} className="hover:bg-white/20 p-2 rounded-full transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 bg-slate-50">
+              {activeCard.type === "metrics" ? (
+                <div className="space-y-6">
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                    <div>
+                      <div className="text-xs font-bold text-slate-400 uppercase">Current Count</div>
+                      <div className="text-4xl font-bold text-slate-800">{activeCard.primary}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded inline-flex items-center gap-1">
+                        <TrendingUp size={14} />
+                        {activeCard.sub}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {activeCard.breakdown.map((b: any) => (
+                      <div key={b.label} className="bg-white p-3 rounded-xl border border-slate-200">
+                        <div className="text-[10px] text-slate-400 font-bold uppercase">{b.label}</div>
+                        <div className="text-lg font-bold text-slate-700">{b.val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                        <FileText size={20} />
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-700 text-sm">Preview File</div>
+                        <div className="text-xs text-slate-400">{activeCard.size}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button className="flex-1 py-2 bg-slate-200 text-slate-600 rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-slate-300 transition-colors">
+                      <Download size={14} /> Download
+                    </button>
+                    <button className="flex-1 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors">
+                      <ExternalLink size={14} /> Open
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Simple helper for sidebar icons
 function SidebarIcon({ icon, active = false }: { icon: React.ReactNode, active?: boolean }) {
   return (
     <div className={`
