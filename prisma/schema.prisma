@@ -564,16 +564,22 @@ enum one_time_token_type {
 }
 // ... (Your other tables will be above this)
 
+// --- BILLING & PLANS ---
+
 model UserSubscription {
   id        String   @id @default(cuid())
   email     String   @unique
   
-  isPro                      Boolean @default(false)
+  // 1. The Plan Type: "free", "pro", or "team"
+  plan      String   @default("free")
+
+  // 2. Billing Details
+  isPro                      Boolean @default(false) // Kept for backward compatibility
   lemonSqueezyCustomerId     String?
   lemonSqueezySubscriptionId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@schema("public") // This keeps it safely in your public folder
+  @@schema("public")
 }
