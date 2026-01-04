@@ -152,7 +152,8 @@ export default function LandingPage() {
                                 <PricingCheck text="Unlimited visualization" highlight />
                                 <PricingCheck text="Up to 5 team members" highlight />
                             </ul>
-                            {/* LEMON SQUEEZY LINK HERE */}
+                            {/* https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903 */}
+        
                             <a
                                 href="https://yourstore.lemonsqueezy.com/checkout/buy/xxxx"
                                 className="w-full block py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
@@ -169,9 +170,10 @@ export default function LandingPage() {
                                 <div className="text-slate-400 text-sm mt-1"> month / annually</div>
                             </div>
                             <ul className="space-y-4 mb-8 flex-1 text-left">
-                                <PricingCheck text="Everything in Pro" />
-                                <PricingCheck text="Unlimited team members" />          
+                                <PricingCheck text="Everything in Pro" highlight />
+                                <PricingCheck text="Unlimited team members" highlight />          
                             </ul>
+                            {/* https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112 */}
                             <Link href="/login" className="w-full block py-3 px-4 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
                                 Get Team
                             </Link>
