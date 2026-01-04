@@ -153,30 +153,34 @@ export default function LandingPage() {
                                 <PricingCheck text="Up to 5 team members" highlight />
                             </ul>
                             {/* https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903 */}
-        
                             <a
-                                href="https://yourstore.lemonsqueezy.com/checkout/buy/xxxx"
+                                href="https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903"
                                 className="w-full block py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
                             >
                                 Get Pro
                             </a>
                         </div>
 
-                        {/* PLAN 3: TEAM */}
-                        <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col">
+                        {/* PLAN 3: Team (With Lemon Squeezy Link) */}
+                        <div className="bg-white rounded-2xl p-8 border-2 border-indigo-600 shadow-xl relative flex flex-col scale-105 z-10">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+                                Most Popular
+                            </div>
                             <div className="mb-4">
-                                <span className="text-slate-500 font-medium">Team</span>
+                                <span className="text-indigo-600 font-bold">Team</span>
                                 <div className="text-4xl font-bold text-slate-900 mt-2">$5 / $50</div>
-                                <div className="text-slate-400 text-sm mt-1"> month / annually</div>
+                                <div className="text-slate-400 text-sm mt-1">per month / per year</div>
                             </div>
                             <ul className="space-y-4 mb-8 flex-1 text-left">
-                                <PricingCheck text="Everything in Pro" highlight />
-                                <PricingCheck text="Unlimited team members" highlight />          
+                                <PricingCheck text="Unlimited Everything" highlight />
                             </ul>
                             {/* https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112 */}
-                            <Link href="/login" className="w-full block py-3 px-4 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 transition-colors">
+                            <a
+                                href="https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112"
+                                className="w-full block py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                            >
                                 Get Team
-                            </Link>
+                            </a>
                         </div>
 
                     </div>
