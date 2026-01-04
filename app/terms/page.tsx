@@ -72,7 +72,7 @@ export default function TermsPage() {
                     <section>
                         <h2 className="text-2xl font-bold text-slate-900 dark:text-zinc-100 mb-4">7. Contact Information</h2>
                         <p>
-                            If you have any questions about these Terms, please contact us at <a href="mailto:hello@usevisible.app" className="text-blue-600 dark:text-blue-400 hover:underline">hello@usevisible.app</a>.
+                            If you have any questions about these Terms, please contact us at <a href="mailto:support@usevisible.app" className="text-blue-600 dark:text-blue-400 hover:underline">support@usevisible.app</a>.
                         </p>
                     </section>
 
