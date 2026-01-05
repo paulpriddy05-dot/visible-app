@@ -3,11 +3,14 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { sendInvite } from "@/app/actions/send-invite";
+import Link from "next/link";
 
 export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToken, dashboardId }: any) {
     const [email, setEmail] = useState("");
     const [role, setRole] = useState("viewer");
-    const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+
+    // 🟢 1. UPDATE: Added 'limit_reached' to status type
+    const [status, setStatus] = useState<'idle' | 'sending' | 'success' | 'error' | 'limit_reached'>('idle');
 
     // Data State
     const [members, setMembers] = useState<any[]>([]);
@@ -26,12 +29,9 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
     const fetchData = async () => {
         setLoadingMembers(true);
 
-        // 1. Get Current User
         const { data: { user } } = await supabase.auth.getUser();
         setCurrentUser(user);
 
-        // 2. Get Access List (This is our Single Source of Truth)
-        // We do NOT fetch 'dashboards' table anymore to avoid the 400 error
         const { data: accessData } = await supabase
             .from('dashboard_access')
             .select('*')
@@ -41,13 +41,11 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         setLoadingMembers(false);
     };
 
-    // 🟢 3. Determine MY Role safely from the list
     const myMemberRow = members.find(m =>
         m.user_id === currentUser?.id ||
         m.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()
     );
 
-    // Normalize roles (handle 'edit' vs 'editor')
     let effectiveRole = myMemberRow?.role || 'viewer';
     if (effectiveRole === 'edit') effectiveRole = 'editor';
     if (effectiveRole === 'view') effectiveRole = 'viewer';
@@ -58,7 +56,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         e.preventDefault();
         setStatus('sending');
 
-        // Check if user exists in list
         const { data: existing } = await supabase
             .from('dashboard_access')
             .select('id')
@@ -69,14 +66,12 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
         let dbError;
 
         if (existing) {
-            // Update existing
             const { error } = await supabase
                 .from('dashboard_access')
                 .update({ role })
                 .eq('id', existing.id);
             dbError = error;
         } else {
-            // Insert new
             const { error } = await supabase
                 .from('dashboard_access')
                 .insert({
@@ -89,20 +84,26 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
 
         if (dbError) {
             console.error("Permission Save Error:", dbError);
-            setStatus('error');
+
+            // 🟢 2. UPDATE: Check if error is due to Plan Limits
+            const msg = dbError.message || dbError.details || "";
+            if (msg.toLowerCase().includes("limit") || msg.toLowerCase().includes("plan")) {
+                setStatus('limit_reached');
+            } else {
+                setStatus('error');
+            }
             return;
         }
 
-        // Send Email
         const result = await sendInvite(email, dashboardTitle, shareToken, role);
 
         if (result.success) {
             setStatus('success');
-            fetchData(); // Reload everything
+            fetchData();
             setTimeout(() => {
                 setStatus('idle');
                 setEmail("");
-                setRole("viewer"); // Reset default
+                setRole("viewer");
             }, 2000);
         } else {
             setStatus('error');
@@ -110,7 +111,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
     };
 
     const updateMemberRole = async (memberId: string, newRole: string) => {
-        // Optimistic Update
         setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
 
         const { error } = await supabase
@@ -160,10 +160,33 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                 {/* Body */}
                 <div className="overflow-y-auto p-6 space-y-8 custom-scroll">
 
-                    {/* INVITE FORM */}
+                    {/* INVITE FORM AREA */}
                     <div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Add People</h4>
-                        {status === 'success' ? (
+
+                        {/* 🟢 3. UPDATE: UI for Limit Reached */}
+                        {status === 'limit_reached' ? (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2">
+                                <div className="flex items-center gap-3 text-amber-800">
+                                    <i className="fas fa-lock text-xl text-amber-500"></i>
+                                    <div>
+                                        <span className="font-bold block text-sm">Team Limit Reached</span>
+                                        <span className="text-xs">Your current plan cannot invite more members.</span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Link href="/account" className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 rounded-lg transition-colors shadow-sm">
+                                        Upgrade Plan
+                                    </Link>
+                                    <button
+                                        onClick={() => setStatus('idle')}
+                                        className="px-3 py-2 bg-white border border-amber-200 text-amber-700 text-xs font-bold rounded-lg hover:bg-amber-100"
+                                    >
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        ) : status === 'success' ? (
                             <div className="bg-green-50 text-green-700 p-3 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
                                 <i className="fas fa-check-circle text-xl"></i>
                                 <div>
@@ -202,6 +225,8 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                 </button>
                             </form>
                         )}
+
+                        {/* Fallback error message for non-limit errors */}
                         {status === 'error' && <p className="text-red-500 text-xs mt-2 font-medium">Error saving permission.</p>}
                     </div>
 
@@ -212,7 +237,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Who has access</h4>
                         <div className="space-y-3">
 
-                            {/* 🟢 "You" Section */}
+                            {/* "You" Section */}
                             {currentUser && (
                                 <div className="flex items-center justify-between group">
                                     <div className="flex items-center gap-3">
@@ -225,7 +250,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                         </div>
                                     </div>
                                     <span className="text-xs text-slate-400 font-medium italic pr-2 capitalize">
-                                        {/* Display logic: If true owner, force "Owner". Else show role. */}
                                         {currentUserRole === 'owner' ? 'Owner' : (currentUserRole === 'editor' ? 'Editor' : 'Viewer')}
                                     </span>
                                 </div>
@@ -240,9 +264,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                 <div className="text-slate-400 text-xs italic ml-11">No other members yet.</div>
                             ) : (
                                 members.map((member) => {
-                                    // Filter out "Me"
                                     if (member.user_email?.toLowerCase() === currentUser?.email?.toLowerCase()) return null;
-                                    // Filter out NULLs
                                     if (!member.user_email || member.user_email === 'NULL') return null;
 
                                     return (
@@ -260,7 +282,6 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                             </div>
 
                                             <div className="flex items-center gap-2">
-                                                {/* 🟢 CHANGE: Allow Owners OR Editors to manage, but PROTECT the Owner from being edited */}
                                                 {['owner', 'editor', 'edit'].includes(currentUserRole) && member.role !== 'owner' ? (
                                                     <>
                                                         <select

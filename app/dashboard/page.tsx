@@ -199,13 +199,17 @@ export default function DashboardLobby() {
               if (canCreate) {
                 handleCreate();
               } else {
-                alert("You have reached the limit for the Free plan. Please upgrade to add more dashboards.");
+                // 🟢 UPDATE: Redirect to upgrade instead of just blocking
+                if (confirm("You have reached the Free plan limit (1 Dashboard). \n\nWould you like to upgrade to create unlimited dashboards?")) {
+                  router.push('/account'); // Sends them to your billing page
+                }
               }
             }}
             className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-all min-h-[180px]
               ${canCreate
                 ? "border-slate-300 text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 cursor-pointer"
-                : "border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50"
+                : "border-red-100 bg-red-50 text-red-400 cursor-pointer hover:bg-red-100 hover:border-red-300"
+              /* 🟢 I changed the style above to look 'clickable' but warning-colored */
               }`}
           >
             {canCreate ? (
@@ -215,9 +219,11 @@ export default function DashboardLobby() {
               </>
             ) : (
               <>
-                <i className="fas fa-lock text-3xl mb-2 text-slate-300"></i>
-                <span className="font-medium">Limit Reached</span>
-                <span className="text-xs mt-1 text-blue-500 font-bold uppercase">Upgrade to Pro</span>
+                <i className="fas fa-lock text-3xl mb-2 text-red-300"></i>
+                <span className="font-medium text-red-500">Plan Limit Reached</span>
+                <span className="text-xs mt-2 bg-white border border-red-200 text-red-500 px-3 py-1 rounded-full font-bold uppercase shadow-sm">
+                  Upgrade &rarr;
+                </span>
               </>
             )}
           </div>
