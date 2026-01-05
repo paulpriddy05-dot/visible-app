@@ -73,7 +73,7 @@ const DEMO_CARDS = [
     title: 'Team Attendance',
     color: 'teal',
     source: 'manual',
-    settings: { category: 'Missions', viewMode: 'chart', chartType: 'area', xAxisCol: 'Week', yAxisCol: 'Attendees', showOnDashboard: true, titleCol: 'Week' },
+    settings: { category: 'Teams', viewMode: 'chart', chartType: 'area', xAxisCol: 'Week', yAxisCol: 'Attendees', showOnDashboard: true, titleCol: 'Week' },
     data: [
       { Week: 'Week 1', Attendees: 120 },
       { Week: 'Week 2', Attendees: 135 },
@@ -88,7 +88,7 @@ const DEMO_CARDS = [
     title: 'Volunteer Roster',
     color: 'orange',
     source: 'manual',
-    settings: { category: 'Missions' },
+    settings: { category: 'Teams' },
     resources: [{ title: 'Lists', items: [{ title: 'Signups.sheet', type: 'link', url: '#' }] }]
   }
 ];
@@ -96,7 +96,7 @@ const DEMO_CARDS = [
 const TOUR_STEPS = [
   { target: 'Planning & Resources', title: "Organize Everything", content: "Create custom sections to organize your cards by department, project, or timeline." },
   { target: 'demo-1', title: "Visualize Data", content: "We automatically turn your Google Sheets into charts. Click this card to see the raw data." },
-  { target: 'demo-2', title: "Group Your Files", content: "Keep PDFs, Docs, and links together. Drag and drop this card to move it to 'Missions'." },
+  { target: 'demo-2', title: "Group Your Files", content: "Keep PDFs, Docs, and links together. Drag and drop this card to move it to 'Teams'." },
 ];
 
 const toCSVUrl = (url: string) => {
@@ -263,7 +263,7 @@ export default function DynamicDashboard() {
   const [sections, setSections] = useState<string[]>(["Planning & Resources"]);
 
   const [scheduleTitle, setScheduleTitle] = useState("Weekly Schedule");
-  const [missionsTitle, setMissionsTitle] = useState("Missions");
+  const [overviewTitle, setOverviewTitle] = useState("Overview");
 
   const [activeCard, setActiveCard] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -350,8 +350,8 @@ export default function DynamicDashboard() {
     // 🟢 DEMO MODE INIT
     if (isDemo) {
       setLoading(true);
-      setConfig({ title: "Welcome to Visible", settings: { sections: ["Planning & Resources", "Missions"] } });
-      setSections(["Planning & Resources", "Missions"]);
+      setConfig({ title: "Welcome to Visible", settings: { sections: ["Planning & Resources", "Teams"] } });
+      setSections(["Planning & Resources", "Teams"]);
       setManualCards(DEMO_CARDS);
       setCanEdit(true); // Allow interaction in demo
       setLoading(false);
@@ -408,7 +408,7 @@ export default function DynamicDashboard() {
       setConfig(dashConfig);
       if (dashConfig.settings?.sections) { setSections(dashConfig.settings.sections); }
       if (dashConfig.settings?.scheduleTitle) { setScheduleTitle(dashConfig.settings.scheduleTitle); }
-      if (dashConfig.settings?.missionsTitle) { setMissionsTitle(dashConfig.settings.missionsTitle); }
+      if (dashConfig.settings?.overviewTitle) { setOverviewTitle(dashConfig.settings.overviewTitle); }
 
       await fetchSheetData(dashConfig);
 
@@ -690,7 +690,7 @@ export default function DynamicDashboard() {
       }
     }
 
-    else if (sections.includes(overId) || overId === "Weekly Schedule" || overId === "Missions") {
+    else if (sections.includes(overId) || overId === "Weekly Schedule" || overId === "Overview") {
       updateCardCategory(activeItem, overId);
     }
   };
@@ -748,7 +748,7 @@ export default function DynamicDashboard() {
     window.location.reload();
   };
 
-  const renameSection = async (oldName: string, type: 'custom' | 'schedule' | 'missions') => {
+  const renameSection = async (oldName: string, type: 'custom' | 'schedule' | 'overview') => {
     const newName = prompt("Rename Section:", oldName);
     if (!newName || newName === oldName) return;
 
@@ -765,7 +765,7 @@ export default function DynamicDashboard() {
       await supabase.rpc('rename_dashboard_section_logic', { p_dashboard_id: dashboardId, p_old_name: oldName, p_new_name: newName });
     }
     else if (type === 'schedule') { setScheduleTitle(newName); if (!isDemo) { newSettings.scheduleTitle = newName; await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId); } }
-    else if (type === 'missions') { setMissionsTitle(newName); if (!isDemo) { newSettings.missionsTitle = newName; await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId); } }
+    else if (type === 'overview') { setOverviewTitle(newName); if (!isDemo) { newSettings.overviewTitle = newName; await supabase.from('dashboards').update({ settings: newSettings }).eq('id', dashboardId); } }
   };
 
   const doesCardMatch = (card: any) => { if (!searchQuery) return true; return JSON.stringify(card).toLowerCase().includes(searchQuery.toLowerCase()); };
@@ -1177,20 +1177,20 @@ export default function DynamicDashboard() {
             </div>
           )}
 
-          {/* 2. MISSIONS */}
+          {/* 2. Overview */}
           {missionSectionItems.length > 0 && (
             <div className="space-y-4">
               <div className="flex items-center justify-between group">
                 <div
                   className={`flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider pl-1 transition-colors ${canEdit ? "cursor-pointer hover:text-blue-500" : ""}`}
-                  onClick={() => canEdit && renameSection(missionsTitle, 'missions')}
+                  onClick={() => canEdit && renameSection(overviewTitle, 'overview')}
                 >
-                  <i className="fas fa-plane-departure"></i> {missionsTitle}
+                  <i className="fas fa-plane-departure"></i> {overviewTitle}
                   {canEdit && <i className="fas fa-pen opacity-0 group-hover:opacity-100 ml-2"></i>}
                 </div>
-                {canEdit && <button onClick={() => addNewCard("Missions")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>}
+                {canEdit && <button onClick={() => addNewCard("Overview")} className="opacity-0 group-hover:opacity-100 text-[10px] font-bold bg-slate-200 hover:bg-slate-300 text-slate-600 px-2 py-1 rounded transition-opacity">+ Add</button>}
               </div>
-              <SortableContext items={missionSectionItems} strategy={rectSortingStrategy} id="Missions">
+              <SortableContext items={missionSectionItems} strategy={rectSortingStrategy} id="Overview">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[100px] border-2 border-transparent hover:border-slate-200/50 border-dashed rounded-xl transition-all">
                   {missionSectionItems.filter(doesCardMatch).map((card) => (
                     <SortableCard key={card.id} card={card} onClick={setActiveModal} getBgColor={getBgColor} variant={card.id === 'missions-status' ? 'mission' : 'vertical'} />
