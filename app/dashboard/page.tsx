@@ -9,20 +9,44 @@ import Link from "next/link";
 export default function DashboardLobby() {
   const [dashboards, setDashboards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🟢 1. THIS WAS MISSING: Define the state for the limit check
+  const [canCreate, setCanCreate] = useState(true);
+
   const router = useRouter();
 
   const fetchDashboards = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/"); return; }
 
-    // 🟢 1. Fetch dashboards AND the 'role' from the access table
     const { data, error } = await supabase
       .from('dashboards')
-      .select('*, dashboard_access!inner(role)') // Get the role (owner/viewer)
+      .select('*, dashboard_access!inner(role)')
       .eq('dashboard_access.user_id', user.id);
 
     if (error) console.error("Error fetching dashboards:", error);
-    if (data) setDashboards(data);
+
+    if (data) {
+      setDashboards(data);
+
+      // 🟢 LIMIT CHECK LOGIC
+      // Count ONLY dashboards where this user is the OWNER
+      const ownedCount = data.filter((d: any) => {
+        const access = Array.isArray(d.dashboard_access) ? d.dashboard_access[0] : d.dashboard_access;
+        return access.role === 'owner';
+      }).length;
+
+      // Check Plan
+      const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', user.id).single();
+      const isFree = !profile || profile.subscription_tier === 'free';
+
+      // Disable button if limit reached
+      if (isFree && ownedCount >= 1) {
+        setCanCreate(false);
+      } else {
+        setCanCreate(true);
+      }
+    }
     setLoading(false);
   };
 
@@ -127,14 +151,12 @@ export default function DashboardLobby() {
           </div>
 
           {dashboards.map((dash) => {
-            // 🟢 2. Check the Role directly from the access table
             const accessData = Array.isArray(dash.dashboard_access) ? dash.dashboard_access[0] : dash.dashboard_access;
             const isOwner = accessData?.role === 'owner';
 
             return (
               <div key={dash.id} onClick={() => router.push(`/dashboard/${dash.id}`)} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-400 cursor-pointer transition-all group relative min-h-[180px] flex flex-col">
 
-                {/* Only show Delete Button if Owner */}
                 {isOwner && (
                   <button
                     onClick={(e) => handleDelete(e, dash.id, dash.title)}
@@ -161,11 +183,35 @@ export default function DashboardLobby() {
             );
           })}
 
-          {/* Create New Dashboard */}
-          <div onClick={handleCreate} className="border-2 border-dashed border-slate-300 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 cursor-pointer transition-all min-h-[180px]">
-            <i className="fas fa-plus text-3xl mb-2"></i>
-            <span className="font-medium">Create New Dashboard</span>
+          {/* 🟢 2. UPDATED: "Create New" Button with Limit Logic */}
+          <div
+            onClick={() => {
+              if (canCreate) {
+                handleCreate();
+              } else {
+                alert("You have reached the limit for the Free plan. Please upgrade to add more dashboards.");
+              }
+            }}
+            className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-all min-h-[180px]
+              ${canCreate
+                ? "border-slate-300 text-slate-400 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 cursor-pointer"
+                : "border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50"
+              }`}
+          >
+            {canCreate ? (
+              <>
+                <i className="fas fa-plus text-3xl mb-2"></i>
+                <span className="font-medium">Create New Dashboard</span>
+              </>
+            ) : (
+              <>
+                <i className="fas fa-lock text-3xl mb-2 text-slate-300"></i>
+                <span className="font-medium">Limit Reached</span>
+                <span className="text-xs mt-1 text-blue-500 font-bold uppercase">Upgrade to Pro</span>
+              </>
+            )}
           </div>
+
         </div>
       </div>
     </div>
