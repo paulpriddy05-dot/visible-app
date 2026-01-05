@@ -530,7 +530,27 @@ export default function DynamicDashboard() {
         if (response.ok) {
           Papa.parse(await response.text(), {
             header: true, skipEmptyLines: true, transformHeader: (h: string) => h.trim(), complete: (results: any) => {
-              const cards = results.data.filter((row: any) => row["Week Label"]).map((row: any, index: number) => ({ id: `sheet1-${index}`, title: row["Week Label"], date_label: row["Date"] || "", scripture: row["Passage"] || "", worship: row["Song List"] || "", response_song: row["Response Song"] || "", offering: row["Offering"] || "", resources: [], color: row["Color"] ? row["Color"].toLowerCase() : "purple", source: "google-sheet", category: "Weekly Schedule" }));
+              // Find this inside fetchSheetData...
+              const cards = results.data
+                .filter((row: any) => row["Week Label"]) // Finds rows with "This Week", "Next Week"
+                .map((row: any, index: number) => ({
+                  id: `sheet1-${index}`,
+                  title: row["Week Label"],       // Maps "This Week" -> Card Title
+                  date_label: row["Date"] || "",  // Maps "1/11/2026"
+                  scripture: row["Passage"] || "",
+
+                  // 🟢 CHANGE THIS LINE:
+                  // OLD: worship: row["Song List"] || "", 
+                  // NEW: Matches your sheet header "Worship"
+                  worship: row["Worship"] || row["Song List"] || "",
+
+                  response_song: row["Response Song"] || "",
+                  offering: row["Offering"] || "",
+                  resources: [],
+                  color: row["Color"] ? row["Color"].toLowerCase() : "purple",
+                  source: "google-sheet",
+                  category: "Weekly Schedule"
+                }));
               setScheduleCards(cards);
             }
           });
