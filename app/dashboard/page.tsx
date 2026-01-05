@@ -98,14 +98,41 @@ export default function DashboardLobby() {
       <div className="max-w-5xl mx-auto py-12 px-6">
         <h2 className="text-2xl font-bold text-slate-800 mb-6">Select a Dashboard</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          {/* 🟢 NEW: INTERACTIVE DEMO CARD */}
+          <div
+            onClick={() => router.push('/dashboard/demo')}
+            className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] cursor-pointer transition-all group relative overflow-hidden text-white"
+          >
+            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <i className="fas fa-compass text-8xl"></i>
+            </div>
+
+            <div className="relative z-10 flex flex-col h-full justify-between min-h-[140px]">
+              <div>
+                <div className="flex items-center gap-2 mb-2 opacity-90">
+                  <i className="fas fa-magic text-sm"></i>
+                  <span className="text-xs font-bold uppercase tracking-widest">Start Here</span>
+                </div>
+                <h3 className="font-bold text-2xl">Interactive Demo</h3>
+                <p className="text-indigo-100 text-sm mt-1">Try out features safely.</p>
+              </div>
+
+              <div className="mt-4">
+                <span className="bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs font-bold group-hover:bg-white group-hover:text-indigo-600 transition-colors">
+                  Launch Demo &rarr;
+                </span>
+              </div>
+            </div>
+          </div>
+
           {dashboards.map((dash) => {
             // 🟢 2. Check the Role directly from the access table
-            // Supabase returns an array for joins, so we take the first item
             const accessData = Array.isArray(dash.dashboard_access) ? dash.dashboard_access[0] : dash.dashboard_access;
             const isOwner = accessData?.role === 'owner';
 
             return (
-              <div key={dash.id} onClick={() => router.push(`/dashboard/${dash.id}`)} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-400 cursor-pointer transition-all group relative">
+              <div key={dash.id} onClick={() => router.push(`/dashboard/${dash.id}`)} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-400 cursor-pointer transition-all group relative min-h-[180px] flex flex-col">
 
                 {/* Only show Delete Button if Owner */}
                 {isOwner && (
@@ -121,9 +148,9 @@ export default function DashboardLobby() {
                 <div className={`h-12 w-12 rounded-lg flex items-center justify-center text-xl font-bold mb-4 transition-colors ${isOwner ? 'bg-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white' : 'bg-purple-100 text-purple-600 group-hover:bg-purple-600 group-hover:text-white'}`}>
                   {dash.title.substring(0, 2).toUpperCase()}
                 </div>
-                <h3 className="font-bold text-lg text-slate-800 truncate pr-6">{dash.title}</h3>
+                <h3 className="font-bold text-lg text-slate-800 truncate pr-6 mb-auto">{dash.title}</h3>
 
-                <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
+                <div className="text-xs text-slate-400 mt-4 flex items-center gap-1">
                   {isOwner ? (
                     <><i className="fas fa-crown text-amber-400"></i> Owner</>
                   ) : (
