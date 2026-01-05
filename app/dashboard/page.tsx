@@ -9,9 +9,10 @@ import Link from "next/link";
 export default function DashboardLobby() {
   const [dashboards, setDashboards] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // 🟢 1. THIS WAS MISSING: Define the state for the limit check
   const [canCreate, setCanCreate] = useState(true);
+
+  // 🟢 1. NEW STATE: We need this so the UI knows which permission row belongs to YOU
+  const [currentUserId, setCurrentUserId] = useState<string>("");
 
   const router = useRouter();
 
@@ -19,9 +20,13 @@ export default function DashboardLobby() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push("/"); return; }
 
+    // 🟢 2. SAVE ID: Store the ID so we can use it in the HTML later
+    setCurrentUserId(user.id);
+
     const { data, error } = await supabase
       .from('dashboards')
-      .select('*, dashboard_access!inner(role)')
+      // Fetch 'user_id' so we can match it against our currentUserId
+      .select('*, dashboard_access!inner(role, user_id)')
       .eq('dashboard_access.user_id', user.id);
 
     if (error) console.error("Error fetching dashboards:", error);
@@ -29,18 +34,16 @@ export default function DashboardLobby() {
     if (data) {
       setDashboards(data);
 
-      // 🟢 LIMIT CHECK LOGIC
-      // Count ONLY dashboards where this user is the OWNER
+      // Limit Check Logic (Existing)
       const ownedCount = data.filter((d: any) => {
-        const access = Array.isArray(d.dashboard_access) ? d.dashboard_access[0] : d.dashboard_access;
-        return access.role === 'owner';
+        const accessList = Array.isArray(d.dashboard_access) ? d.dashboard_access : [d.dashboard_access];
+        const myAccess = accessList.find((a: any) => a.user_id === user.id);
+        return myAccess?.role === 'owner';
       }).length;
 
-      // Check Plan
       const { data: profile } = await supabase.from('profiles').select('subscription_tier').eq('id', user.id).single();
       const isFree = !profile || profile.subscription_tier === 'free';
 
-      // Disable button if limit reached
       if (isFree && ownedCount >= 1) {
         setCanCreate(false);
       } else {
@@ -123,7 +126,7 @@ export default function DashboardLobby() {
         <h2 className="text-2xl font-bold text-slate-800 mb-6">Select a Dashboard</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-          {/* 🟢 NEW: INTERACTIVE DEMO CARD */}
+          {/* INTERACTIVE DEMO CARD */}
           <div
             onClick={() => router.push('/dashboard/demo')}
             className="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] cursor-pointer transition-all group relative overflow-hidden text-white"
@@ -150,9 +153,16 @@ export default function DashboardLobby() {
             </div>
           </div>
 
+          {/* 🟢 3. UPDATED MAP LOOP: Properly detects Owner vs Viewer */}
           {dashboards.map((dash) => {
-            const accessData = Array.isArray(dash.dashboard_access) ? dash.dashboard_access[0] : dash.dashboard_access;
-            const isOwner = accessData?.role === 'owner';
+            // Normalize to array (Supabase quirk)
+            const accessList = Array.isArray(dash.dashboard_access) ? dash.dashboard_access : [dash.dashboard_access];
+
+            // Find THE specific access row that belongs to the currently logged-in user
+            const myAccess = accessList.find((a: any) => a.user_id === currentUserId);
+
+            // Check role on THAT specific row
+            const isOwner = myAccess?.role === 'owner';
 
             return (
               <div key={dash.id} onClick={() => router.push(`/dashboard/${dash.id}`)} className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md hover:border-blue-400 cursor-pointer transition-all group relative min-h-[180px] flex flex-col">
@@ -183,7 +193,7 @@ export default function DashboardLobby() {
             );
           })}
 
-          {/* 🟢 2. UPDATED: "Create New" Button with Limit Logic */}
+          {/* Create New Dashboard Button */}
           <div
             onClick={() => {
               if (canCreate) {
