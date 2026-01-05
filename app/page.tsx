@@ -19,11 +19,18 @@ export default function LandingPage() {
                     <div className="select-none">
                         <Logo className="h-10" />
                     </div>
-                    <div className="flex items-center gap-6">
-                        <Link href="/why" className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors hidden md:block">
+
+                    {/* 🟢 UPDATED: Middle Navigation Links */}
+                    <div className="flex items-center gap-8 hidden md:flex">
+                        <Link href="/why" className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
                             Our Story
                         </Link>
+                        {/* Added Pricing Link (Anchors to section below) */}
+                        <Link href="#pricing" className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
+                            Pricing
+                        </Link>
                     </div>
+
                     <div className="flex items-center gap-4 sm:gap-6">
                         <Link href="/login" className="text-slate-500 font-medium hover:text-slate-900 transition-colors text-sm sm:text-base hidden sm:block">
                             Sign In
@@ -106,7 +113,7 @@ export default function LandingPage() {
                 </div>
             </main>
 
-            {/* --- PRICING SECTION (Added) --- */}
+            {/* --- PRICING SECTION --- */}
             <section id="pricing" className="py-20 sm:py-24 bg-slate-50 border-t border-slate-200">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
 
@@ -136,7 +143,7 @@ export default function LandingPage() {
                             </Link>
                         </div>
 
-                        {/* PLAN 2: PRO (With Lemon Squeezy Link) */}
+                        {/* PLAN 2: PRO */}
                         <div className="bg-white rounded-2xl p-8 border-2 border-indigo-600 shadow-xl relative flex flex-col scale-105 z-10">
                             <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
                                 Most Popular
@@ -152,7 +159,7 @@ export default function LandingPage() {
                                 <PricingCheck text="Unlimited visualization" highlight />
                                 <PricingCheck text="Up to 5 team members" highlight />
                             </ul>
-                            {/* https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903 */}
+
                             <a
                                 href="https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903"
                                 className="w-full block py-3 px-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
@@ -161,21 +168,18 @@ export default function LandingPage() {
                             </a>
                         </div>
 
-                        {/* PLAN 3: TEAM (Standard View) */}
+                        {/* PLAN 3: TEAM */}
                         <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-lg relative flex flex-col">
-                            {/* Removed the "Most Popular" Badge */}
 
                             <div className="mb-4">
                                 <span className="text-slate-900 font-bold text-lg">Team</span>
                                 <div className="text-4xl font-bold text-slate-900 mt-2">$5</div>
-                                {/* Adjusted text to be cleaner */}
                                 <div className="text-slate-400 text-sm mt-1">per member / month</div>
                                 <div className="text-slate-400 text-xs">or $50/year</div>
                             </div>
 
                             <ul className="space-y-4 mb-8 flex-1 text-left">
                                 <PricingCheck text="Unlimited Everything" />
-                
                             </ul>
 
                             <a
