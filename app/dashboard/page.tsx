@@ -201,7 +201,7 @@ export default function DashboardLobby() {
               } else {
                 // 🟢 UPDATE: Redirect to upgrade instead of just blocking
                 if (confirm("You have reached the Free plan limit (1 Dashboard). \n\nWould you like to upgrade to create unlimited dashboards?")) {
-                  router.push('/account'); // Sends them to your billing page
+                  router.push('/pricing'); // Sends them to your billing page
                 }
               }
             }}

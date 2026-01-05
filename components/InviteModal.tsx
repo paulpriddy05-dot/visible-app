@@ -164,7 +164,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                     <div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Add People</h4>
 
-                        {/* 🟢 3. UPDATE: UI for Limit Reached */}
+                        {/* 🟢 UPDATE: Link to /pricing */}
                         {status === 'limit_reached' ? (
                             <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-3 animate-in fade-in slide-in-from-top-2">
                                 <div className="flex items-center gap-3 text-amber-800">
@@ -175,7 +175,7 @@ export default function InviteModal({ isOpen, onClose, dashboardTitle, shareToke
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Link href="/account" className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 rounded-lg transition-colors shadow-sm">
+                                    <Link href="/pricing" className="flex-1 text-center bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 rounded-lg transition-colors shadow-sm">
                                         Upgrade Plan
                                     </Link>
                                     <button
