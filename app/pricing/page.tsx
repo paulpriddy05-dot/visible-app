@@ -1,8 +1,27 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 export default function PricingPage() {
+    const [userId, setUserId] = useState("");
+
+    useEffect(() => {
+        // Get the current user so we can attach their ID to the purchase
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) setUserId(user.id);
+        };
+        getUser();
+    }, []);
+
+    // Helper to generate the correct payment link with User ID
+    const getPaymentLink = (baseUrl: string) => {
+        if (!userId) return baseUrl; // Fallback if not loaded yet
+        return `${baseUrl}?checkout[custom][user_id]=${userId}`;
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 py-20 px-4">
             <div className="max-w-6xl mx-auto text-center">
@@ -33,7 +52,7 @@ export default function PricingPage() {
                             <li className="flex items-center gap-3"><i className="fas fa-check text-blue-500 bg-blue-50 p-1 rounded-full text-xs"></i> One data visualization</li>
                         </ul>
 
-                        <button className="w-full py-3 rounded-xl bg-slate-100 text-slate-700 font-bold hover:bg-slate-200 transition-colors">
+                        <button disabled className="w-full py-3 rounded-xl bg-slate-100 text-slate-400 font-bold cursor-not-allowed">
                             Current Plan
                         </button>
                     </div>
@@ -54,11 +73,14 @@ export default function PricingPage() {
                             <li className="flex items-center gap-3"><i className="fas fa-check-circle text-blue-600"></i> Up to 5 team members</li>
                         </ul>
 
-                        <Link href="https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903" /* https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903 */ >
-                            <button className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/25">
-                                Get Pro
-                            </button>
-                        </Link>
+                        {/* 🟢 FIXED LINK: Uses 'a' tag + Appends User ID */}
+                        <a
+                            href={getPaymentLink("https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903")}
+                            target="_blank"
+                            className="w-full block text-center py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/25"
+                        >
+                            Get Pro
+                        </a>
                     </div>
 
                     {/* TEAM */}
@@ -72,15 +94,15 @@ export default function PricingPage() {
                             <li className="flex items-center gap-3"><i className="fas fa-check text-blue-500 bg-blue-50 p-1 rounded-full text-xs"></i> Priority Support</li>
                             <li className="flex items-center gap-3"><i className="fas fa-check text-blue-500 bg-blue-50 p-1 rounded-full text-xs"></i> Advanced Permissions</li>
                         </ul>
-                        <Link href="https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112" /* https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112 */ >
-                            <button className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/25">
-                                Get Pro
-                            </button>
-                        </Link>
 
-                        <button className="w-full py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-bold hover:border-blue-600 hover:text-blue-600 transition-all">
-                            Get Visible Team
-                        </button>
+                        {/* 🟢 FIXED LINK: Uses 'a' tag + Appends User ID */}
+                        <a
+                            href={getPaymentLink("https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112")}
+                            target="_blank"
+                            className="w-full block text-center py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/25"
+                        >
+                            Get Team
+                        </a>
                     </div>
 
                 </div>
