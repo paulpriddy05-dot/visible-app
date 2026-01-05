@@ -54,7 +54,7 @@ export default function PricingPage() {
                             <li className="flex items-center gap-3"><i className="fas fa-check-circle text-blue-600"></i> Up to 5 team members</li>
                         </ul>
 
-                        <Link href="https://buy.stripe.com/test_..." /* 🟢 TODO: Replace with your Stripe Payment Link */ >
+                        <Link href="https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903" /* https://usevisible.lemonsqueezy.com/checkout/buy/5ee7a79c-76fc-45ab-b5ff-a8c989b7e903 */ >
                             <button className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/25">
                                 Get Pro
                             </button>
@@ -72,9 +72,14 @@ export default function PricingPage() {
                             <li className="flex items-center gap-3"><i className="fas fa-check text-blue-500 bg-blue-50 p-1 rounded-full text-xs"></i> Priority Support</li>
                             <li className="flex items-center gap-3"><i className="fas fa-check text-blue-500 bg-blue-50 p-1 rounded-full text-xs"></i> Advanced Permissions</li>
                         </ul>
+                        <Link href="https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112" /* https://usevisible.lemonsqueezy.com/checkout/buy/93649dd7-2dc9-40b8-bd62-a033cc9d5112 */ >
+                            <button className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg hover:shadow-blue-500/25">
+                                Get Pro
+                            </button>
+                        </Link>
 
                         <button className="w-full py-3 rounded-xl bg-white border-2 border-slate-200 text-slate-700 font-bold hover:border-blue-600 hover:text-blue-600 transition-all">
-                            Contact Sales
+                            Get Visible Team
                         </button>
                     </div>
 
